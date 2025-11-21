@@ -66,14 +66,14 @@ bool radio_begin(RadioComm *radio, gpio_num_t ce, gpio_num_t csn) {
   
   // Initialize link status LED
   gpio_config_t led_conf = {
-    .pin_bit_mask = (1ULL << LINK_STATUS_LED_PIN),
+    .pin_bit_mask = (1ULL << STATUS_LED_PIN),
     .mode = GPIO_MODE_OUTPUT,
     .pull_up_en = GPIO_PULLUP_DISABLE,
     .pull_down_en = GPIO_PULLDOWN_DISABLE,
     .intr_type = GPIO_INTR_DISABLE
   };
   gpio_config(&led_conf);
-  gpio_set_level(LINK_STATUS_LED_PIN, 0);
+  gpio_set_level(STATUS_LED_PIN, 0);
 
   // Initialize addresses
   uint8_t default_tx[5] = {0xE7, 0xE7, 0xE7, 0xE7, 0xE7};
@@ -341,7 +341,7 @@ void radio_dump_registers(RadioComm* radio) {
 
 void radio_update_link_status(RadioComm* radio) {
   if (!radio->initialized) {
-    gpio_set_level(LINK_STATUS_LED_PIN, 0);
+    gpio_set_level(STATUS_LED_PIN, 0);
     return;
   }
 
@@ -362,14 +362,14 @@ void radio_update_link_status(RadioComm* radio) {
 
   // Update LED based on link status
   if (radio->link_good) {
-    gpio_set_level(LINK_STATUS_LED_PIN, 1); // LED on for good link
+    gpio_set_level(STATUS_LED_PIN, 1); // LED on for good link
   } else if (recent_failure) {
     // Blink LED rapidly for recent failures
     static bool blink_state = false;
     blink_state = !blink_state;
-    gpio_set_level(LINK_STATUS_LED_PIN, blink_state ? 1 : 0);
+    gpio_set_level(STATUS_LED_PIN, blink_state ? 1 : 0);
   } else {
-    gpio_set_level(LINK_STATUS_LED_PIN, 0); // LED off for no link
+    gpio_set_level(STATUS_LED_PIN, 0); // LED off for no link
   }
 
   // Log link status periodically

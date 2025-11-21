@@ -15,7 +15,7 @@
 #define NRF24_CSN_PIN     GPIO_NUM_4
 
 // Link status LED
-#define LINK_STATUS_LED_PIN GPIO_NUM_13
+#define STATUS_LED_PIN GPIO_NUM_2
 
 // SPI Configuration
 #define NRF24_SPI_HOST    SPI2_HOST
