@@ -1,0 +1,203 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C / C++ build files
+*.o
+*.obj
+*.exe
+*.out
+*.app
+
+# ESP32 / ESP-IDF build files
+build/
+managed_components/
+sdkconfig
+sdkconfig.old
+*.bin
+*.elf
+*.map
+
+# PlatformIO specific files
+.pio/
+.pioenvs/
+.piolibdeps/
+*.pio
+*.tmp
+*.bak
+*.swp
+*~
+
+# Arduino IDE files
+*.cpp.cpp
+*.c.c
+
+# Build logs
+*.log
+*.log.*
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.sublime-*
+*.atom/
+.brackets/
+.vimrc
+.netrwhist
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Project-specific temp files
+temp/
+tmp/
+logs/
+*.tmp
+*.temp
+.cache/
+
+# Configuration files with secrets
+*.env
+.env.local
+.env.*.local
+config.ini
+config.local.ini
+secrets.ini
+credentials.json
+
+# Backup files
+*.backup
+*.bak
+*.old
+*.orig
+*.rej
+
+# Test files
+test_results/
+coverage/
+.coverage
+*.cover
+*.py,cover
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+
+# Documentation build
+docs/_build/
+docs/build/
+
+# Package files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Node.js (if any JS tools used)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Flash memory files
+*.flash
+*.flash.*
+
+# JTAG/Debug files
+*.jlink
+*.jtagsession
+
+# Serial port logs
+serial_*.log
+uart_*.log
+
+# Hardware abstraction layer files
+hal_*.*
+board_*.*
+
+# Compiler specific files
+*.a
+*.lib
+*.exp
+*.ilk
+*.pdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp_proj
+.vspscc
+.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# Local development files
+local_config.h
+local_settings.h
+secrets.h
+wifi_config.h
+
+# Monitoring and profiling files
+*.prof
+*.profile
+*.perf
+
+# Temporary firmware files
+firmware_temp/
+firmware_backup/
