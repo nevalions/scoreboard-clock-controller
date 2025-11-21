@@ -14,6 +14,9 @@
 #define NRF24_CE_PIN      GPIO_NUM_5
 #define NRF24_CSN_PIN     GPIO_NUM_4
 
+// Link status LED
+#define LINK_STATUS_LED_PIN GPIO_NUM_13
+
 // SPI Configuration
 #define NRF24_SPI_HOST    SPI2_HOST
 #define NRF24_MOSI_PIN    GPIO_NUM_23
@@ -93,6 +96,13 @@ typedef struct {
     // Radio configuration
     uint8_t tx_address[5];
     uint8_t rx_address[5];
+    
+    // Link status tracking
+    uint32_t last_success_time;
+    uint32_t last_failure_time;
+    uint16_t success_count;
+    uint16_t failure_count;
+    bool link_good;
 } RadioComm;
 
 // Function declarations
@@ -101,6 +111,8 @@ bool radio_send_command(RadioComm* radio, uint8_t command, uint16_t seconds, uin
 bool radio_is_transmit_complete(RadioComm* radio);
 void radio_flush_tx(RadioComm* radio);
 void radio_dump_registers(RadioComm* radio);
+void radio_update_link_status(RadioComm* radio);
+bool radio_check_link_quality(RadioComm* radio);
 
 // Low-level SPI functions
 uint8_t nrf24_read_register(RadioComm* radio, uint8_t reg);

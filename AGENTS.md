@@ -6,6 +6,9 @@
 - `idf.py clean` - Clean build artifacts
 - `idf.py menuconfig` - Configure project settings
 
+## Important Notes
+- **DO NOT ATTEMPT TO FLASH ON BOARD** - Only build the project, do not flash
+
 ## Code Style Guidelines
 - **Language**: C (ESP-IDF framework)
 - **Headers**: Use `#pragma once` for include guards

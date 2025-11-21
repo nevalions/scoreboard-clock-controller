@@ -71,6 +71,9 @@ void app_main(void) {
             }
         }
 
+        // Update link status LED and logging
+        radio_update_link_status(&radio);
+
         vTaskDelay(pdMS_TO_TICKS(50)); // 20Hz update rate
     }
 }

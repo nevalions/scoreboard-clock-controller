@@ -63,6 +63,17 @@ bool radio_begin(RadioComm *radio, gpio_num_t ce, gpio_num_t csn) {
   memset(radio, 0, sizeof(RadioComm));
   radio->ce_pin = ce;
   radio->csn_pin = csn;
+  
+  // Initialize link status LED
+  gpio_config_t led_conf = {
+    .pin_bit_mask = (1ULL << LINK_STATUS_LED_PIN),
+    .mode = GPIO_MODE_OUTPUT,
+    .pull_up_en = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type = GPIO_INTR_DISABLE
+  };
+  gpio_config(&led_conf);
+  gpio_set_level(LINK_STATUS_LED_PIN, 0);
 
   // Initialize addresses
   uint8_t default_tx[5] = {0xE7, 0xE7, 0xE7, 0xE7, 0xE7};
@@ -183,6 +194,8 @@ bool radio_send_command(RadioComm *radio, uint8_t command, uint16_t seconds, uin
     return false;
   }
 
+  uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+
   // Flush any pending TX data
   radio_flush_tx(radio);
 
@@ -213,14 +226,18 @@ bool radio_send_command(RadioComm *radio, uint8_t command, uint16_t seconds, uin
       // Transmission successful
       nrf24_write_register(radio, NRF24_REG_STATUS, NRF24_STATUS_TX_DS);
       gpio_set_level(radio->ce_pin, 0);
-      ESP_LOGI(TAG, "Command sent: %d, seconds: %d, seq: %d", command, seconds, sequence);
+      radio->success_count++;
+      radio->last_success_time = current_time;
+      ESP_LOGI(TAG, "Command sent: %d, seconds: %d, seq: %d (success #%d)", command, seconds, sequence, radio->success_count);
       return true;
     }
     if (status & NRF24_STATUS_MAX_RT) {
       // Max retries reached
       nrf24_write_register(radio, NRF24_REG_STATUS, NRF24_STATUS_MAX_RT);
       gpio_set_level(radio->ce_pin, 0);
-      ESP_LOGW(TAG, "Transmission failed - max retries");
+      radio->failure_count++;
+      radio->last_failure_time = current_time;
+      ESP_LOGW(TAG, "Transmission failed - max retries (failure #%d)", radio->failure_count);
       return false;
     }
     vTaskDelay(pdMS_TO_TICKS(1));
@@ -228,7 +245,9 @@ bool radio_send_command(RadioComm *radio, uint8_t command, uint16_t seconds, uin
 
   // Timeout
   gpio_set_level(radio->ce_pin, 0);
-  ESP_LOGW(TAG, "Transmission timeout");
+  radio->failure_count++;
+  radio->last_failure_time = current_time;
+  ESP_LOGW(TAG, "Transmission timeout (failure #%d)", radio->failure_count);
   return false;
 }
 
@@ -318,4 +337,71 @@ void radio_dump_registers(RadioComm* radio) {
   }
   
   ESP_LOGI(TAG, "=== End Register Dump ===");
+}
+
+void radio_update_link_status(RadioComm* radio) {
+  if (!radio->initialized) {
+    gpio_set_level(LINK_STATUS_LED_PIN, 0);
+    return;
+  }
+
+  uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+  
+  // Check if we've had recent successful transmissions
+  bool recent_success = (current_time - radio->last_success_time) < 5000; // 5 seconds
+  bool recent_failure = (current_time - radio->last_failure_time) < 2000; // 2 seconds
+  
+  // Determine link quality
+  if (radio->success_count == 0) {
+    radio->link_good = false;
+  } else {
+    uint16_t total_attempts = radio->success_count + radio->failure_count;
+    float success_rate = (float)radio->success_count / total_attempts;
+    radio->link_good = success_rate > 0.7 && recent_success;
+  }
+
+  // Update LED based on link status
+  if (radio->link_good) {
+    gpio_set_level(LINK_STATUS_LED_PIN, 1); // LED on for good link
+  } else if (recent_failure) {
+    // Blink LED rapidly for recent failures
+    static bool blink_state = false;
+    blink_state = !blink_state;
+    gpio_set_level(LINK_STATUS_LED_PIN, blink_state ? 1 : 0);
+  } else {
+    gpio_set_level(LINK_STATUS_LED_PIN, 0); // LED off for no link
+  }
+
+  // Log link status periodically
+  static uint32_t last_log_time = 0;
+  if (current_time - last_log_time > 10000) { // Log every 10 seconds
+    last_log_time = current_time;
+    if (radio->success_count + radio->failure_count > 0) {
+      float success_rate = (float)radio->success_count / (radio->success_count + radio->failure_count) * 100.0f;
+      ESP_LOGI(TAG, "Link Status: %s | Success Rate: %.1f%% | Success: %d, Failures: %d", 
+               radio->link_good ? "GOOD" : "POOR", success_rate, radio->success_count, radio->failure_count);
+    } else {
+      ESP_LOGI(TAG, "Link Status: NO TRANSMISSIONS YET");
+    }
+  }
+}
+
+bool radio_check_link_quality(RadioComm* radio) {
+  if (!radio->initialized) {
+    return false;
+  }
+
+  uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+  
+  // Check if we've had any successful transmissions recently
+  if (radio->success_count == 0) {
+    return false;
+  }
+
+  // Check success rate and recent activity
+  uint16_t total_attempts = radio->success_count + radio->failure_count;
+  float success_rate = (float)radio->success_count / total_attempts;
+  bool recent_success = (current_time - radio->last_success_time) < 5000; // 5 seconds
+
+  return success_rate > 0.7 && recent_success;
 }
