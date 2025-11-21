@@ -26,6 +26,9 @@ void app_main(void) {
         return;
     }
 
+    // Dump radio registers for debugging
+    radio_dump_registers(&radio);
+
     ESP_LOGI(TAG, "Controller initialized successfully");
 
     // Main loop

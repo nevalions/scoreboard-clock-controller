@@ -100,6 +100,7 @@ bool radio_begin(RadioComm* radio, gpio_num_t ce, gpio_num_t csn);
 bool radio_send_command(RadioComm* radio, uint8_t command, uint16_t seconds, uint8_t sequence);
 bool radio_is_transmit_complete(RadioComm* radio);
 void radio_flush_tx(RadioComm* radio);
+void radio_dump_registers(RadioComm* radio);
 
 // Low-level SPI functions
 uint8_t nrf24_read_register(RadioComm* radio, uint8_t reg);
