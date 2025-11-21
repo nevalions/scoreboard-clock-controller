@@ -7,7 +7,8 @@
 - `idf.py menuconfig` - Configure project settings
 
 ## Important Notes
-- **DO NOT ATTEMPT TO FLASH ON BOARD** - Only build the project, do not flash
+- **AGENTS/LLMS ONLY**: DO NOT ATTEMPT TO FLASH ON BOARD - Only build the project, do not flash
+- **Users**: Can build and flash normally using `idf.py flash monitor`
 
 ## Code Style Guidelines
 - **Language**: C (ESP-IDF framework)
@@ -16,10 +17,18 @@
 - **Naming**: 
   - Functions: `snake_case` (e.g., `button_begin`, `radio_send_command`)
   - Variables: `snake_case` (e.g., `start_button`, `current_seconds`)
-  - Constants: `UPPER_SNAKE_CASE` (e.g., `START_BUTTON_PIN`, `CMD_RUN`)
+  - Constants: `UPPER_SNAKE_CASE` (e.g., `START_BUTTON_PIN`, `CMD_RUN`, `STATUS_LED_PIN`)
   - Types: `PascalCase` for typedefs (e.g., `Button`, `RadioComm`)
 - **Logging**: Use `ESP_LOGI`, `ESP_LOGE`, `ESP_LOGD` with TAG constant
 - **Error Handling**: Return bool for success/failure, check return values
 - **File Organization**: Headers in `include/`, implementations in `main/`
 - **FreeRTOS**: Use `vTaskDelay()` with `pdMS_TO_TICKS()` for timing
 - **GPIO**: Use `gpio_num_t` enum for pin definitions
+
+## Pin Definitions
+- **STATUS_LED_PIN**: GPIO_NUM_2 - Link status LED
+- **START_BUTTON_PIN**: GPIO_NUM_0 - Start button
+- **STOP_BUTTON_PIN**: GPIO_NUM_2 - Stop button  
+- **RESET_BUTTON_PIN**: GPIO_NUM_15 - Reset button
+- **NRF24_CE_PIN**: GPIO_NUM_5 - Radio CE pin
+- **NRF24_CSN_PIN**: GPIO_NUM_4 - Radio CSN pin

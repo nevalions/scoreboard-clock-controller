@@ -8,12 +8,15 @@ This ESP32 controller sends start/stop/reset commands to the play clock display 
 - **nRF24L01+ Radio**: Transmits commands to play clock
 - **Time Tracking**: Maintains internal time counter
 - **Auto-Updates**: Sends time updates every 10 seconds when running
+- **Link Status LED**: Visual indication of radio link quality
+- **Enhanced Logging**: Success/failure tracking and periodic status reports
 
 ## Hardware Required
 
 - ESP32 development board
 - nRF24L01+ radio module
 - 3x momentary push buttons
+- Status LED (built-in LED on GPIO2)
 - 10µF capacitor (optional, for power stability)
 
 ## Pin Connections
@@ -31,6 +34,9 @@ This ESP32 controller sends start/stop/reset commands to the play clock display 
 - START → GPIO0 (connect to GND)
 - STOP → GPIO2 (connect to GND)
 - RESET → GPIO15 (connect to GND)
+
+### Status LED
+- Status LED → GPIO2 (built-in LED on most ESP32 boards)
 
 ## Commands Sent
 
@@ -52,6 +58,15 @@ idf.py flash monitor
 2. Press STOP to pause timing
 3. Press RESET to reset to 00:00
 4. Time updates are sent automatically every 10 seconds when running
+
+## Link Status Indication
+
+The status LED provides visual feedback about the radio link quality:
+- **LED ON**: Good link (>70% success rate with recent activity)
+- **LED OFF**: No link or poor connection
+- **LED BLINKING**: Recent transmission failures
+
+Link status is also logged every 10 seconds with success rate statistics.
 
 ## Radio Configuration
 
