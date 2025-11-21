@@ -15,7 +15,12 @@ static uint8_t spi_transfer(RadioComm* radio, uint8_t data) {
     .tx_buffer = &data,
     .rx_buffer = &rx_data
   };
-  spi_device_transmit(radio->spi, &trans);
+  esp_err_t ret = spi_device_transmit(radio->spi, &trans);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "SPI transfer failed: %s", esp_err_to_name(ret));
+    return 0xFF;
+  }
+  ESP_LOGD(TAG, "SPI TX: 0x%02X, RX: 0x%02X", data, rx_data);
   return rx_data;
 }
 
@@ -94,16 +99,38 @@ bool radio_begin(RadioComm *radio, gpio_num_t ce, gpio_num_t csn) {
     .queue_size = 7
   };
 
-  spi_bus_initialize(NRF24_SPI_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
-  spi_bus_add_device(NRF24_SPI_HOST, &dev_cfg, &radio->spi);
+  esp_err_t ret = spi_bus_initialize(NRF24_SPI_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "SPI bus initialization failed: %s", esp_err_to_name(ret));
+    return false;
+  }
+  
+  ret = spi_bus_add_device(NRF24_SPI_HOST, &dev_cfg, &radio->spi);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "SPI device addition failed: %s", esp_err_to_name(ret));
+    return false;
+  }
 
+  ESP_LOGI(TAG, "SPI bus initialized successfully");
+  ESP_LOGI(TAG, "MOSI: GPIO%d, MISO: GPIO%d, SCK: GPIO%d", 
+           NRF24_MOSI_PIN, NRF24_MISO_PIN, NRF24_SCK_PIN);
+  ESP_LOGI(TAG, "CE: GPIO%d, CSN: GPIO%d", ce, csn);
+
+  // Test basic SPI communication by reading status register
+  uint8_t test_status = nrf24_get_status(radio);
+  ESP_LOGI(TAG, "Initial status register: 0x%02X", test_status);
+  
   // Power up and configure nRF24L01+ as transmitter
   nrf24_write_register(radio, NRF24_REG_CONFIG, 0);
   vTaskDelay(pdMS_TO_TICKS(10));
   
   // Enable CRC, power up, primary transmitter mode
   nrf24_write_register(radio, NRF24_REG_CONFIG, NRF24_CONFIG_EN_CRC | NRF24_CONFIG_PWR_UP);
-  vTaskDelay(pdMS_TO_TICKS(5));
+  vTaskDelay(pdMS_TO_TICKS(50));
+  
+  // Verify power up by reading config register
+  uint8_t config_check = nrf24_read_register(radio, NRF24_REG_CONFIG);
+  ESP_LOGI(TAG, "Config register after power up: 0x%02X", config_check);
 
   // Set data rate to 1Mbps, 0dBm power
   nrf24_write_register(radio, NRF24_REG_RF_SETUP, 0x06);
