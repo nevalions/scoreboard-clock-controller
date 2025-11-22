@@ -1,0 +1,3 @@
+[submodule "radio-common"]
+	path = radio-common
+	url = https://github.com/nevalions/scoreboard-clock-radio-common-nrf24.git
