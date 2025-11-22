@@ -16,17 +16,15 @@
 
 | Button | ESP32 Pin | Function | Description |
 |--------|-----------|----------|-------------|
-| START | GPIO0 | Start Button | Starts the clock (internal pull-up) |
-| STOP | GPIO2 | Stop Button | Stops the clock (internal pull-up) |
-| RESET | GPIO15 | Reset Button | Resets clock to 00:00 (internal pull-up) |
+| CONTROL | GPIO0 | Control Button | Single button for start/stop/reset (internal pull-up) |
 
 ## Button Wiring
 
 ```
-Button Wiring (for each button):
-ESP32 GPIO ---- Button ---- GND
-              (internal pull-up)
-              
+Button Wiring:
+ESP32 GPIO0 ---- Button ---- GND
+               (internal pull-up)
+               
 When button is pressed: GPIO reads LOW
 When button is released: GPIO reads HIGH
 ```
@@ -34,8 +32,8 @@ When button is released: GPIO reads HIGH
 ## Complete Wiring Diagram
 
 ```
-ESP32              nRF24L01+           Buttons
-------             ----------           -------
+ESP32              nRF24L01+           Button/LED
+------             ----------           ----------
 3.3V -------------- VCC
 GND --------------- GND
 GPIO5 ------------ CE
@@ -44,9 +42,8 @@ GPIO18 ----------- SCK
 GPIO23 ----------- MOSI
 GPIO19 ----------- MISO
 
-GPIO0 ------------ START ---- GND
-GPIO2 ------------ STOP  ---- GND  
-GPIO15 ----------- RESET ---- GND
+GPIO0 ------------ CONTROL ---- GND
+GPIO2 ------------ STATUS LED (built-in)
 ```
 
 ## Power Requirements
@@ -57,16 +54,16 @@ GPIO15 ----------- RESET ---- GND
 
 ## Button Specifications
 
-- **Type**: Momentary push buttons
-- **Wiring**: Active LOW (internal pull-up resistors used)
+- **Type**: Momentary push button (single button)
+- **Wiring**: Active LOW (internal pull-up resistor used)
 - **Debounce**: 50ms software debounce implemented
 - **Update Rate**: 20Hz (50ms polling interval)
+- **Operation**: Press duration detection for different functions
 
 ## Operation
 
-1. **START Button**: Sends CMD_RUN command, starts time counting
-2. **STOP Button**: Sends CMD_STOP command, stops time counting  
-3. **RESET Button**: Sends CMD_RESET command, resets time to 00:00
+1. **Short Press** (< 2 seconds): Toggle start/stop timing
+2. **Long Press** (≥ 2 seconds): Reset timer to 00:00 and stop
 
 ## Radio Configuration
 
@@ -80,7 +77,8 @@ GPIO15 ----------- RESET ---- GND
 
 ## Troubleshooting
 
-1. **Buttons not responding**: Check button connections to GND
+1. **Button not responding**: Check button connection to GND on GPIO0
 2. **Radio not transmitting**: Verify 3.3V power and SPI connections
 3. **Intermittent operation**: Add 10µF decoupling capacitor
 4. **Short range**: Check antenna placement and power supply stability
+5. **Status LED not working**: Built-in LED on GPIO2 may vary by ESP32 board

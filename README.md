@@ -34,7 +34,7 @@ This ESP32 controller sends time data to the play clock display via nRF24L01+ ra
 - CONTROL → GPIO0 (connect to GND, internal pull-up)
 
 ### Status LED
-- Status LED → GPIO17 (external LED recommended)
+- Status LED → GPIO2 (built-in LED)
 
 ## Button Operation
 
