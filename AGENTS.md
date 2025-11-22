@@ -15,9 +15,9 @@
 - **Headers**: Use `#pragma once` for include guards
 - **Includes**: Group system headers first, then local headers with relative paths
 - **Naming**: 
-  - Functions: `snake_case` (e.g., `button_begin`, `radio_send_command`)
-  - Variables: `snake_case` (e.g., `start_button`, `current_seconds`)
-  - Constants: `UPPER_SNAKE_CASE` (e.g., `START_BUTTON_PIN`, `CMD_RUN`, `STATUS_LED_PIN`)
+  - Functions: `snake_case` (e.g., `button_begin`, `radio_send_time`)
+  - Variables: `snake_case` (e.g., `control_button`, `current_seconds`)
+  - Constants: `UPPER_SNAKE_CASE` (e.g., `CONTROL_BUTTON_PIN`, `STATUS_LED_PIN`)
   - Types: `PascalCase` for typedefs (e.g., `Button`, `RadioComm`)
 - **Logging**: Use `ESP_LOGI`, `ESP_LOGE`, `ESP_LOGD` with TAG constant
 - **Error Handling**: Return bool for success/failure, check return values
@@ -26,9 +26,7 @@
 - **GPIO**: Use `gpio_num_t` enum for pin definitions
 
 ## Pin Definitions
-- **STATUS_LED_PIN**: GPIO_NUM_2 - Link status LED
-- **START_BUTTON_PIN**: GPIO_NUM_0 - Start button
-- **STOP_BUTTON_PIN**: GPIO_NUM_2 - Stop button  
-- **RESET_BUTTON_PIN**: GPIO_NUM_15 - Reset button
+- **STATUS_LED_PIN**: GPIO_NUM_17 - Link status LED
+- **CONTROL_BUTTON_PIN**: GPIO_NUM_0 - Single control button (start/stop/reset)
 - **NRF24_CE_PIN**: GPIO_NUM_5 - Radio CE pin
 - **NRF24_CSN_PIN**: GPIO_NUM_4 - Radio CSN pin

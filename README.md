@@ -1,13 +1,13 @@
 # ESP32 Controller for Play Clock
 
-This ESP32 controller sends start/stop/reset commands to the play clock display via nRF24L01+ radio.
+This ESP32 controller sends time data to the play clock display via nRF24L01+ radio using a simplified protocol.
 
 ## Features
 
-- **3 Control Buttons**: START, STOP, RESET
-- **nRF24L01+ Radio**: Transmits commands to play clock
+- **Single Control Button**: Start/stop/reset with press duration detection
+- **nRF24L01+ Radio**: Transmits time data to play clock
 - **Time Tracking**: Maintains internal time counter
-- **Auto-Updates**: Sends time updates every 10 seconds when running
+- **Continuous Updates**: Sends time updates every 250ms
 - **Link Status LED**: Visual indication of radio link quality
 - **Enhanced Logging**: Success/failure tracking and periodic status reports
 
@@ -15,8 +15,8 @@ This ESP32 controller sends start/stop/reset commands to the play clock display 
 
 - ESP32 development board
 - nRF24L01+ radio module
-- 3x momentary push buttons
-- Status LED (built-in LED on GPIO2)
+- 1x momentary push button
+- Status LED (built-in LED on GPIO17)
 - 10µF capacitor (optional, for power stability)
 
 ## Pin Connections
@@ -30,19 +30,23 @@ This ESP32 controller sends start/stop/reset commands to the play clock display 
 - MOSI → GPIO23
 - MISO → GPIO19
 
-### Control Buttons
-- START → GPIO0 (connect to GND)
-- STOP → GPIO2 (connect to GND)
-- RESET → GPIO15 (connect to GND)
+### Control Button
+- CONTROL → GPIO0 (connect to GND, internal pull-up)
 
 ### Status LED
-- Status LED → GPIO2 (built-in LED on most ESP32 boards)
+- Status LED → GPIO17 (external LED recommended)
 
-## Commands Sent
+## Button Operation
 
-- **CMD_RUN (1)**: Start clock with current time
-- **CMD_STOP (0)**: Stop clock
-- **CMD_RESET (2)**: Reset clock to 00:00
+- **Short Press** (< 2 seconds): Toggle start/stop
+- **Long Press** (≥ 2 seconds): Reset timer to 00:00 and stop
+
+## Data Protocol
+
+The controller sends continuous 3-byte time packets:
+- **Byte 0**: Time high byte (seconds >> 8)
+- **Byte 1**: Time low byte (seconds & 0xFF)  
+- **Byte 2**: Sequence number (0-255, wraps)
 
 ## Build and Flash
 
@@ -54,10 +58,10 @@ idf.py flash monitor
 
 ## Operation
 
-1. Press START to begin timing
-2. Press STOP to pause timing
-3. Press RESET to reset to 00:00
-4. Time updates are sent automatically every 10 seconds when running
+1. **Short press** the control button to start/pause timing
+2. **Long press** the control button to reset to 00:00
+3. Time updates are sent continuously every 250ms
+4. Receiver infers start/stop/reset from time changes
 
 ## Link Status Indication
 
@@ -75,7 +79,8 @@ Link status is also logged every 10 seconds with success rate statistics.
 - Power: 0 dBm
 - Address: 0xE7E7E7E7E7
 - Auto-ACK: Enabled
+- Update Rate: 250ms (4Hz)
 
 ## Integration
 
-This controller works with the play_clock receiver. Both use the same radio frequency and address for communication.
+This controller works with the play_clock receiver. The receiver must be updated to handle the new 3-byte time-only protocol format.
