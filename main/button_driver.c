@@ -9,6 +9,7 @@ static const char *TAG = "BUTTON_DRIVER";
 bool button_begin(Button* button, gpio_num_t pin) {
   button->pin = pin;
   button->state = BUTTON_RELEASED;
+  button->last_state = BUTTON_RELEASED;
   button->last_change_time = 0;
   
   // Configure GPIO with pull-up
@@ -34,6 +35,7 @@ void button_update(Button* button) {
   if (current_level != button->current_level) {
     button->current_level = current_level;
     button->last_change_time = current_time;
+    button->last_state = button->state;
     button->state = BUTTON_DEBOUNCING;
     return;
   }
@@ -41,7 +43,9 @@ void button_update(Button* button) {
   // Handle debouncing
   if (button->state == BUTTON_DEBOUNCING) {
     if (current_time - button->last_change_time > 50) { // 50ms debounce
-      button->state = current_level ? BUTTON_RELEASED : BUTTON_PRESSED;
+      ButtonState new_state = current_level ? BUTTON_RELEASED : BUTTON_PRESSED;
+      button->last_state = button->state;
+      button->state = new_state;
     }
   }
 }
@@ -51,8 +55,14 @@ bool button_is_pressed(Button* button) {
 }
 
 bool button_get_falling_edge(Button* button) {
-  static ButtonState last_state = BUTTON_RELEASED;
-  bool falling_edge = (last_state == BUTTON_RELEASED) && (button->state == BUTTON_PRESSED);
-  last_state = button->state;
+  bool falling_edge = (button->last_state == BUTTON_RELEASED) && (button->state == BUTTON_PRESSED);
   return falling_edge;
+}
+
+bool button_get_held(Button* button, uint32_t hold_time_ms) {
+  if (button->state == BUTTON_PRESSED) {
+    uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    return (current_time - button->last_change_time) >= hold_time_ms;
+  }
+  return false;
 }

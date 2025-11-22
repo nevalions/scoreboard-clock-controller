@@ -7,7 +7,7 @@
 static const char *TAG = "CONTROLLER";
 
 static RadioComm radio;
-static Button start_button, stop_button, reset_button;
+static Button control_button;
 static uint8_t sequence = 0;
 static uint16_t current_seconds = 0;
 static bool is_running = false;
@@ -15,10 +15,8 @@ static bool is_running = false;
 void app_main(void) {
     ESP_LOGI(TAG, "Starting Controller Application");
 
-    // Initialize buttons
-    button_begin(&start_button, START_BUTTON_PIN);
-    button_begin(&stop_button, STOP_BUTTON_PIN);
-    button_begin(&reset_button, RESET_BUTTON_PIN);
+    // Initialize button
+    button_begin(&control_button, CONTROL_BUTTON_PIN);
 
     // Initialize radio
     if (!radio_begin(&radio, NRF24_CE_PIN, NRF24_CSN_PIN)) {
@@ -31,44 +29,86 @@ void app_main(void) {
 
     ESP_LOGI(TAG, "Controller initialized successfully");
 
+    // Static variables for button state tracking
+    static uint32_t last_time = 0;
+    static uint32_t last_transmit = 0;
+    static uint32_t last_gpio_debug = 0;
+    static bool reset_button_pressed = false;
+    static uint32_t reset_press_time = 0;
+    static bool control_button_pressed = false;
+    static uint32_t control_press_time = 0;
+    static ButtonState last_control_state = BUTTON_RELEASED;
+
     // Main loop
     while (1) {
-        // Update button states
-        button_update(&start_button);
-        button_update(&stop_button);
-        button_update(&reset_button);
-
-        // Check for button presses
-        if (button_get_falling_edge(&start_button)) {
-            ESP_LOGI(TAG, "START button pressed");
-            is_running = true;
-            radio_send_command(&radio, CMD_RUN, current_seconds, sequence++);
+        // Update button state
+        button_update(&control_button);
+        
+        uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        
+        // Log raw GPIO levels for debugging
+        if (current_time - last_gpio_debug > 1000) {
+            ESP_LOGI(TAG, "GPIO level - Control: %d | Button state - Control: %d", 
+                     gpio_get_level(CONTROL_BUTTON_PIN),
+                     button_is_pressed(&control_button));
+            last_gpio_debug = current_time;
         }
-
-        if (button_get_falling_edge(&stop_button)) {
-            ESP_LOGI(TAG, "STOP button pressed");
-            is_running = false;
-            radio_send_command(&radio, CMD_STOP, current_seconds, sequence++);
+        
+        // Check for button state change
+        if (control_button.state != last_control_state) {
+            ESP_LOGI(TAG, "CONTROL button state changed: %d -> %d", last_control_state, control_button.state);
+            last_control_state = control_button.state;
         }
-
-        if (button_get_falling_edge(&reset_button)) {
-            ESP_LOGI(TAG, "RESET button pressed");
+        
+        // Handle control button - single button for start/stop/reset
+        static bool was_pressed = false;
+        bool now_pressed = button_is_pressed(&control_button);
+        
+        // Detect button press (rising edge)
+        if (now_pressed && !was_pressed) {
+            control_button_pressed = true;
+            control_press_time = current_time;
+            ESP_LOGI(TAG, "CONTROL button pressed");
+        }
+        
+        // Check for hold (2 seconds) - reset timer
+        if (control_button_pressed && now_pressed && 
+            (current_time - control_press_time >= 2000)) {
+            ESP_LOGI(TAG, "CONTROL button held - resetting timer");
             is_running = false;
             current_seconds = 0;
-            radio_send_command(&radio, CMD_RESET, current_seconds, sequence++);
+            control_button_pressed = false; // Prevent repeat
         }
-
+        
+        // Check for release (short press) - toggle start/stop
+        if (control_button_pressed && !now_pressed) {
+            if (current_time - control_press_time < 2000) {
+                ESP_LOGI(TAG, "CONTROL button released - toggling timer (running: %d)", !is_running);
+                is_running = !is_running;
+            }
+            control_button_pressed = false;
+        }
+        
+        was_pressed = now_pressed;
+        
         // Update time if running
-        static uint32_t last_time = 0;
-        uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
         if (is_running && (current_time - last_time >= 1000)) {
             current_seconds++;
             last_time = current_time;
-            
-            // Send time update every 10 seconds
-            if (current_seconds % 10 == 0) {
-                radio_send_command(&radio, CMD_RUN, current_seconds, sequence++);
-            }
+            ESP_LOGI(TAG, "Timer incrementing: %d seconds", current_seconds);
+        }
+        
+        // Debug: log timer state every 5 seconds
+        static uint32_t last_debug = 0;
+        if (current_time - last_debug >= 5000) {
+            ESP_LOGI(TAG, "Timer state - running: %d, seconds: %d", is_running, current_seconds);
+            last_debug = current_time;
+        }
+        
+        // Send time update every 250ms to keep time actual
+        if (current_time - last_transmit >= 250) {
+            radio_send_time(&radio, current_seconds, sequence++);
+            last_transmit = current_time;
         }
 
         // Update link status LED and logging

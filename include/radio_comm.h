@@ -5,17 +5,14 @@
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 
-// Control commands
-#define CMD_STOP        0
-#define CMD_RUN         1
-#define CMD_RESET       2
+
 
 // Radio module configuration (nRF24L01+)
 #define NRF24_CE_PIN      GPIO_NUM_5
 #define NRF24_CSN_PIN     GPIO_NUM_4
 
 // Link status LED
-#define STATUS_LED_PIN GPIO_NUM_2
+#define STATUS_LED_PIN GPIO_NUM_17
 
 // SPI Configuration
 #define NRF24_SPI_HOST    SPI2_HOST
@@ -107,7 +104,7 @@ typedef struct {
 
 // Function declarations
 bool radio_begin(RadioComm* radio, gpio_num_t ce, gpio_num_t csn);
-bool radio_send_command(RadioComm* radio, uint8_t command, uint16_t seconds, uint8_t sequence);
+bool radio_send_time(RadioComm* radio, uint16_t seconds, uint8_t sequence);
 bool radio_is_transmit_complete(RadioComm* radio);
 void radio_flush_tx(RadioComm* radio);
 void radio_dump_registers(RadioComm* radio);
