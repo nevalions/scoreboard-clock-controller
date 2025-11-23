@@ -3,5 +3,5 @@ cmake_minimum_required(VERSION 3.16)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(scoreboard_controller)
 
-# Add radio-common as an extra component
-set(EXTRA_COMPONENT_DIRS ../radio-common)
+# Add radio-common and sport_selector as extra components
+set(EXTRA_COMPONENT_DIRS ../radio-common ../sport_selector)

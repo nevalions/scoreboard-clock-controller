@@ -4,6 +4,7 @@
 #include "../include/button_driver.h"
 #include "../include/radio_comm.h"
 #include "../../radio-common/include/radio_config.h"
+#include "../../sport_selector/include/sport_selector.h"
 
 static const char *TAG = "CONTROLLER";
 
@@ -18,9 +19,33 @@ static Button control_button;
 static uint8_t sequence = 0;
 static uint16_t current_seconds = 0;
 static bool is_running = false;
+static sport_config_t current_sport = {0};
+
+// Function to set sport by type
+void set_sport(sport_type_t sport_type) {
+    current_sport = get_sport_config(sport_type);
+    current_seconds = current_sport.play_clock_seconds;
+    is_running = false; // Stop timer when changing sport
+    
+    ESP_LOGI(TAG, "Sport set to: %s %s (%d seconds)", 
+             current_sport.name, current_sport.variation, current_sport.play_clock_seconds);
+}
+
+// Available sport types for selection:
+// SPORT_BASKETBALL_24_SEC, SPORT_BASKETBALL_30_SEC
+// SPORT_FOOTBALL_40_SEC, SPORT_FOOTBALL_25_SEC  
+// SPORT_BASEBALL_15_SEC, SPORT_BASEBALL_20_SEC, SPORT_BASEBALL_14_SEC, SPORT_BASEBALL_19_SEC
+// SPORT_VOLLEYBALL_8_SEC, SPORT_LACROSSE_30_SEC
+// Custom sports: use get_custom_config(seconds, behavior)
 
 void app_main(void) {
   ESP_LOGI(TAG, "Starting Controller Application");
+
+  // Initialize sport configuration (default to basketball 24 sec)
+  current_sport = get_sport_config(SPORT_BASKETBALL_24_SEC);
+  current_seconds = current_sport.play_clock_seconds;
+  ESP_LOGI(TAG, "Sport initialized: %s %s (%d seconds)", 
+           current_sport.name, current_sport.variation, current_sport.play_clock_seconds);
 
   // Initialize button
   button_begin(&control_button, CONTROL_BUTTON_PIN);
@@ -81,12 +106,12 @@ void app_main(void) {
       ESP_LOGI(TAG, "CONTROL button pressed");
     }
 
-    // Check for hold (2 seconds) - reset timer
+    // Check for hold (2 seconds) - reset timer to sport default
     if (control_button_pressed && now_pressed &&
         (current_time - control_press_time >= 2000)) {
-      ESP_LOGI(TAG, "CONTROL button held - resetting timer");
+      ESP_LOGI(TAG, "CONTROL button held - resetting timer to sport default");
       is_running = false;
-      current_seconds = 0;
+      current_seconds = current_sport.play_clock_seconds;
       control_button_pressed = false; // Prevent repeat
     }
 
