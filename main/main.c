@@ -3,6 +3,7 @@
 #include "freertos/task.h"
 #include "../include/button_driver.h"
 #include "../include/radio_comm.h"
+#include "../include/lcd_i2c.h"
 #include "../../radio-common/include/radio_config.h"
 #include "../../sport_selector/include/sport_selector.h"
 
@@ -16,6 +17,7 @@ static const char *TAG = "CONTROLLER";
 
 static RadioComm radio;
 static Button control_button;
+static LcdI2C lcd;
 static uint8_t sequence = 0;
 static uint16_t current_seconds = 0;
 static bool is_running = false;
@@ -50,6 +52,12 @@ void app_main(void) {
   // Initialize button
   button_begin(&control_button, CONTROL_BUTTON_PIN);
 
+  // Initialize I2C LCD
+  if (!lcd_i2c_begin(&lcd, LCD_I2C_ADDR, LCD_I2C_PORT, LCD_I2C_SDA_PIN, LCD_I2C_SCL_PIN)) {
+    ESP_LOGE(TAG, "Failed to initialize I2C LCD");
+    return;
+  }
+
   // Initialize radio
   if (!radio_begin(&radio, NRF24_CE_PIN, NRF24_CSN_PIN)) {
     ESP_LOGE(TAG, "Failed to initialize radio");
@@ -62,6 +70,13 @@ void app_main(void) {
   vTaskDelay(pdMS_TO_TICKS(2)); // Small delay to ensure mode switch
 
   ESP_LOGI(TAG, "Controller initialized successfully");
+
+  // Initialize I2C LCD display
+  lcd_i2c_clear(&lcd);
+  lcd_i2c_set_cursor(&lcd, 0, 0);
+  lcd_i2c_printf(&lcd, "%s %s", current_sport.name, current_sport.variation);
+  lcd_i2c_set_cursor(&lcd, 0, 1);
+  lcd_i2c_printf(&lcd, "Time: %03d", current_seconds);
 
   // Static variables for button state tracking
   static uint32_t last_time = 0;

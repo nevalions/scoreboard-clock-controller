@@ -45,6 +45,8 @@ idf.py menuconfig
 | CONTROL_BUTTON_PIN | GPIO_NUM_0 | Start/stop/reset control |
 | NRF24_CE_PIN | GPIO_NUM_5 | Radio chip enable |
 | NRF24_CSN_PIN | GPIO_NUM_4 | Radio chip select |
+| LCD_I2C_SDA_PIN | GPIO_NUM_21 | LCD I2C SDA |
+| LCD_I2C_SCL_PIN | GPIO_NUM_22 | LCD I2C SCL |
 
 ### Radio Module (nRF24L01+)
 | Connection | ESP32 Pin |
@@ -57,27 +59,37 @@ idf.py menuconfig
 | MOSI | GPIO23 |
 | MISO | GPIO19 |
 
+### LCD Module (1602A with I2C Adapter)
+| Connection | ESP32 Pin |
+|-----------|------------|
+| VCC | 3.3V |
+| GND | GND |
+| SDA | GPIO21 |
+| SCL | GPIO22 |
+
 ## Component Architecture
 
 ### Main Components
 - **main.c**: Application entry point and main control loop
 - **button_driver.c**: Button press detection and duration timing
 - **radio_comm.c**: nRF24L01+ radio interface and protocol
+- **lcd_i2c.c**: 1602A LCD driver with I2C/PCF8574 interface
 - **radio-common/**: Shared radio functionality (submodule)
 
 ### Data Flow
 1. Button driver detects press events
 2. Main loop updates time counter when running
 3. Radio comm broadcasts time packets (4Hz)
-4. Status LED reflects link quality
-5. Logs provide debugging and status information
+4. LCD displays current sport, time, and status
+5. Status LED reflects link quality
+6. Logs provide debugging and status information
 
 ## Build System
 
 ### ESP-IDF Integration
 - **Target**: ESP32
 - **Framework**: ESP-IDF v6.1
-- **Dependencies**: driver, esp_driver_gpio, esp_driver_spi
+- **Dependencies**: driver, esp_driver_gpio, esp_driver_spi, esp_driver_i2c
 - **Extra Components**: ../radio-common
 
 ### Component Dependencies
@@ -86,11 +98,13 @@ main/
 ├── CMakeLists.txt    # Component registration
 ├── main.c           # Application logic
 ├── button_driver.c   # Button handling
-└── radio_comm.c      # Radio interface
+├── radio_comm.c      # Radio interface
+└── lcd_i2c.c         # LCD driver
 
 include/
 ├── button_driver.h   # Button interface
-└── radio_comm.h      # Radio interface
+├── radio_comm.h      # Radio interface
+└── lcd_i2c.h         # LCD interface
 ```
 
 ## Testing & Debugging
