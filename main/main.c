@@ -1,10 +1,16 @@
-#include "../include/button_driver.h"
-#include "../include/radio_comm.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "../include/button_driver.h"
+#include "../include/radio_comm.h"
 
 static const char *TAG = "CONTROLLER";
+
+// Pin definitions (from AGENTS.md)
+#define STATUS_LED_PIN GPIO_NUM_17
+#define CONTROL_BUTTON_PIN GPIO_NUM_0
+#define NRF24_CE_PIN GPIO_NUM_5
+#define NRF24_CSN_PIN GPIO_NUM_4
 
 static RadioComm radio;
 static Button control_button;
