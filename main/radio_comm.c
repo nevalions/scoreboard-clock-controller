@@ -36,6 +36,19 @@ bool radio_begin(RadioComm *radio, gpio_num_t ce, gpio_num_t csn) {
     return false;
   }
 
+  // Power up the radio and set to TX mode for initial configuration
+  nrf24_power_up(&radio->base);
+  nrf24_write_register(&radio->base, NRF24_REG_CONFIG, RADIO_CONFIG_TX_MODE);
+  vTaskDelay(pdMS_TO_TICKS(2)); // Small delay to ensure mode switch
+
+  // Ensure radio is powered up and in TX mode
+  nrf24_power_up(&radio->base);
+  uint8_t config = nrf24_read_register(&radio->base, NRF24_REG_CONFIG);
+  config |= NRF24_CONFIG_PWR_UP;  // Ensure PWR_UP is set
+  config &= ~NRF24_CONFIG_PRIM_RX;  // Ensure TX mode (PRIM_RX = 0)
+  nrf24_write_register(&radio->base, NRF24_REG_CONFIG, config);
+  vTaskDelay(pdMS_TO_TICKS(2)); // Small delay to ensure mode switch
+
   ESP_LOGI(TAG, "nRF24L01+ transmitter initialized successfully");
   return true;
 }

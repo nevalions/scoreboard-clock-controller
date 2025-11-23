@@ -3,6 +3,7 @@
 #include "freertos/task.h"
 #include "../include/button_driver.h"
 #include "../include/radio_comm.h"
+#include "../../radio-common/include/radio_config.h"
 
 static const char *TAG = "CONTROLLER";
 
@@ -30,8 +31,10 @@ void app_main(void) {
     return;
   }
 
-  // Dump radio registers for debugging
-  radio_dump_registers(&radio);
+  // Power up the radio and set to TX mode
+  nrf24_power_up(&radio.base);
+  nrf24_write_register(&radio.base, NRF24_REG_CONFIG, RADIO_CONFIG_TX_MODE);
+  vTaskDelay(pdMS_TO_TICKS(2)); // Small delay to ensure mode switch
 
   ESP_LOGI(TAG, "Controller initialized successfully");
 
