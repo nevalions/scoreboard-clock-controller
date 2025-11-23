@@ -1,12 +1,14 @@
 # ESP32 Controller Development Guidelines
 
+## Development Rules
+- **🚫 AGENTS/LLMS**: Build only, no flashing
+- **✅ Users**: Can build and flash normally
+- **📝 Documentation**: Update README.md for user-facing changes
+
 ## Quick Start
 ```bash
 # Build project
 idf.py build
-
-# Flash and monitor (users only)
-idf.py flash monitor
 
 # Clean build
 idf.py clean
@@ -14,11 +16,6 @@ idf.py clean
 # Configure settings
 idf.py menuconfig
 ```
-
-## Development Rules
-- **🚫 AGENTS/LLMS**: Build only, no flashing
-- **✅ Users**: Can build and flash normally
-- **📝 Documentation**: Update README.md for user-facing changes
 
 ## Code Standards
 

@@ -12,8 +12,7 @@ The controller maintains an internal time counter and continuously broadcasts ti
 - **📡 nRF24L01+ Radio**: Reliable 2.4GHz wireless communication
 - **⏱️ Real-time Clock**: Maintains and transmits current time (HH:MM:SS format)
 - **🔄 Continuous Updates**: 4Hz update rate (250ms intervals) for smooth display
-- **📊 Link Quality Monitoring**: Visual and logged radio link status
-- **🔧 Enhanced Debugging**: Comprehensive logging and status reporting
+- **📊 Link Quality Monitoring**: Visual radio link status indicator
 
 ## Hardware Requirements
 
@@ -41,7 +40,7 @@ The controller maintains an internal time counter and continuously broadcasts ti
 
 | LED | ESP32 GPIO | Description |
 |------|------------|-------------|
-| Status | GPIO2 | Link quality indicator (built-in LED) |
+| Status | GPIO17 | Link quality indicator |
 
 ## Operation
 
@@ -54,27 +53,14 @@ The controller maintains an internal time counter and continuously broadcasts ti
 - **⚫ Solid OFF**: No link or poor connection quality  
 - **🟡 Blinking**: Recent transmission failures detected
 
-## Radio Protocol
+## Installation & Setup
 
-The controller broadcasts 3-byte time packets continuously:
+### Prerequisites
+- ESP-IDF development environment
+- Compatible ESP32 development board
+- nRF24L01+ radio module
 
-```
-Byte 0: Time high byte (seconds >> 8)
-Byte 1: Time low byte (seconds & 0xFF)
-Byte 2: Sequence number (0-255, wraps automatically)
-```
-
-### Radio Configuration
-- **Frequency**: 2.476 GHz (Channel 76)
-- **Data Rate**: 1 Mbps
-- **Power**: 0 dBm
-- **Address**: 0xE7E7E7E7E7
-- **Auto-ACK**: Enabled for reliability
-- **Update Interval**: 250ms (4Hz)
-
-## Development
-
-### Build Commands
+### Build and Flash
 ```bash
 # Build the project
 idf.py build
@@ -89,22 +75,6 @@ idf.py clean
 idf.py menuconfig
 ```
 
-### Project Structure
-```
-controller/
-├── CMakeLists.txt          # Main project configuration
-├── README.md               # This file
-├── AGENTS.md               # Development guidelines
-├── include/                # Public headers
-│   ├── button_driver.h
-│   └── radio_comm.h
-└── main/                   # Source code
-    ├── CMakeLists.txt
-    ├── main.c
-    ├── button_driver.c
-    └── radio_comm.c
-```
-
 ## Integration Notes
 
 ### Compatible Receivers
@@ -117,7 +87,7 @@ controller/
 2. User presses button to start timing
 3. Time increments and broadcasts continuously
 4. Receiver displays time and infers control states
-5. Link quality monitored via LED and serial logs
+5. Link quality monitored via LED
 
 ## Troubleshooting
 
@@ -127,8 +97,7 @@ controller/
 - **Time not advancing**: Check button press detection and timing logic
 - **Build failures**: Ensure ESP-IDF environment is properly configured
 
-### Debug Information
-- Radio status logged every 10 seconds
-- Transmission success/failure tracked
-- Link quality percentage calculated
-- Register dump available for advanced debugging
+### Getting Help
+- Check serial monitor for real-time status and error messages
+- Refer to AGENTS.md for development and debugging details
+- Verify all pin connections match the hardware configuration
