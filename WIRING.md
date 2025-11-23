@@ -14,12 +14,33 @@
 
 ## ESP32 Controller to 1602A LCD (I2C) Connections
 
-| LCD/I2C Pin | ESP32 Pin | Function | Description |
-|-------------|-----------|----------|-------------|
+### I2C Adapter Module Connections
+| I2C Adapter Pin | ESP32 Pin | Function | Description |
+|-----------------|-----------|----------|-------------|
 | VCC | 3.3V | Power | 3.3V power supply |
 | GND | GND | Ground | Common ground |
 | SDA | GPIO21 | I2C Data | I2C serial data line |
 | SCL | GPIO22 | I2C Clock | I2C serial clock line |
+
+### PCF8574T to LCD Module Connections
+| PCF8574T Pin | LCD Pin | Function | Description |
+|--------------|---------|----------|-------------|
+| P0 | RS (4) | Register Select | Command/Data select |
+| P1 | RW (5) | Read/Write | Write mode (grounded) |
+| P2 | EN (6) | Enable | LCD enable signal |
+| P3 | A (15) | Backlight | Backlight control |
+| P4 | D4 (11) | Data 4 | 4-bit data line |
+| P5 | D5 (12) | Data 5 | 4-bit data line |
+| P6 | D6 (13) | Data 6 | 4-bit data line |
+| P7 | D7 (14) | Data 7 | 4-bit data line |
+
+### LCD Module Power Connections
+| LCD Pin | Connection | Function | Description |
+|---------|------------|----------|-------------|
+| VSS (1) | GND | Ground | LCD ground |
+| VDD (2) | 3.3V | Power | LCD power (3.3V) |
+| VO (3) | Potentiometer | Contrast | LCD contrast control |
+| K (16) | GND | Backlight Ground | Backlight cathode |
 
 **Note:** The LCD uses a PCF8574T I2C adapter module. Default I2C address is 0x27.
 
@@ -92,8 +113,8 @@ When button is released: GPIO reads HIGH
 ## Complete Wiring Diagram
 
 ```
-ESP32              nRF24L01+           1602A LCD (I2C)      Button/LED
-------             ----------           -----------------      ----------
+ESP32              nRF24L01+           I2C Adapter           1602A LCD           Button
+------             ----------           ------------           ----------           ------
 3.3V -------------- VCC
 GND --------------- GND
 GPIO5 ------------ CE
@@ -102,13 +123,28 @@ GPIO18 ----------- SCK
 GPIO23 ----------- MOSI
 GPIO19 ----------- MISO
 
-                   3.3V ------------ VCC
-                   GND ------------ GND
-                   GPIO21 --------- SDA
-                   GPIO22 --------- SCL
+3.3V -------------------------------- VCC
+GND --------------------------------- GND
+GPIO21 ------------------------------ SDA
+GPIO22 ------------------------------ SCL
 
-GPIO0 ------------ CONTROL ---- GND
-GPIO2 ------------ STATUS LED (built-in)
+                                        P0 -------------------- RS (4)
+                                        P1 -------------------- RW (5)
+                                        P2 -------------------- EN (6)
+                                        P3 -------------------- A (15)
+                                        P4 -------------------- D4 (11)
+                                        P5 -------------------- D5 (12)
+                                        P6 -------------------- D6 (13)
+                                        P7 -------------------- D7 (14)
+
+LCD Module Power:
+VSS (1) -------------------------------- GND
+VDD (2) -------------------------------- 3.3V
+VO (3) --------------------------------- Potentiometer (contrast)
+K (16) --------------------------------- GND (backlight)
+
+GPIO0 --------------------------------- Button ---- GND
+GPIO2 --------------------------------- STATUS LED (built-in)
 ```
 
 ## Power Requirements
