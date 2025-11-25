@@ -213,9 +213,15 @@ void app_main(void) {
 
     // Update time if running
     if (is_running && (current_time - last_time >= 1000)) {
-      current_seconds++;
-      last_time = current_time;
-      ESP_LOGI(TAG, "Timer incrementing: %d seconds", current_seconds);
+      if (current_seconds > 0) {
+        current_seconds--;
+        last_time = current_time;
+        ESP_LOGI(TAG, "Timer counting down: %d seconds", current_seconds);
+      } else {
+        // Timer reached zero, stop running
+        is_running = false;
+        ESP_LOGI(TAG, "Timer reached zero - stopped");
+      }
     }
 
     // Debug: log timer state every 5 seconds
