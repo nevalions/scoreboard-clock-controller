@@ -11,36 +11,45 @@ static esp_err_t lcd_i2c_write_byte(LcdI2C* lcd, uint8_t data);
 static void lcd_i2c_write_nibble(LcdI2C* lcd, uint8_t nibble, bool is_data);
 static void lcd_i2c_pulse_enable(LcdI2C* lcd, uint8_t data);
 
-bool lcd_i2c_begin(LcdI2C* lcd, uint8_t addr, i2c_port_t port, gpio_num_t sda_pin, gpio_num_t scl_pin) {
+bool lcd_i2c_begin(LcdI2C* lcd, uint8_t addr, gpio_num_t sda_pin, gpio_num_t scl_pin) {
     ESP_LOGI(TAG, "Initializing I2C LCD at address 0x%02X", addr);
     
     lcd->i2c_addr = addr;
-    lcd->i2c_port = port;
     lcd->display_function = LCD_4BIT_MODE | LCD_2LINE | LCD_5x8_DOTS;
     lcd->display_control = LCD_DISPLAY_ON | LCD_CURSOR_OFF | LCD_BLINK_OFF;
     lcd->display_mode = LCD_ENTRY_LEFT | LCD_ENTRY_SHIFT_DECREMENT;
     lcd->backlight_state = LCD_BACKLIGHT_MASK;
     
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = sda_pin,
+    i2c_master_bus_config_t i2c_mst_config = {
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .i2c_port = I2C_NUM_0,
         .scl_io_num = scl_pin,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = 100000
+        .sda_io_num = sda_pin,
+        .glitch_ignore_cnt = 7,
+        .flags.enable_internal_pullup = true,
     };
     
-    esp_err_t ret = i2c_param_config(lcd->i2c_port, &conf);
+    i2c_master_bus_handle_t bus_handle;
+    esp_err_t ret = i2c_new_master_bus(&i2c_mst_config, &bus_handle);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "I2C param config failed: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "I2C new master bus failed: %s", esp_err_to_name(ret));
         return false;
     }
     
-    ret = i2c_driver_install(lcd->i2c_port, conf.mode, 0, 0, 0);
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = lcd->i2c_addr,
+        .scl_speed_hz = 100000,
+    };
+    
+    i2c_master_dev_handle_t dev_handle;
+    ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_handle);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "I2C driver install failed: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "I2C bus add device failed: %s", esp_err_to_name(ret));
         return false;
     }
+    
+    lcd->i2c_dev = dev_handle;
     
     vTaskDelay(pdMS_TO_TICKS(50));
     
@@ -71,14 +80,9 @@ bool lcd_i2c_begin(LcdI2C* lcd, uint8_t addr, i2c_port_t port, gpio_num_t sda_pi
 }
 
 static esp_err_t lcd_i2c_write_byte(LcdI2C* lcd, uint8_t data) {
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (lcd->i2c_addr << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, data | lcd->backlight_state, true);
-    i2c_master_stop(cmd);
+    uint8_t write_buf = data | lcd->backlight_state;
     
-    esp_err_t ret = i2c_master_cmd_begin(lcd->i2c_port, cmd, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(cmd);
+    esp_err_t ret = i2c_master_transmit(lcd->i2c_dev, &write_buf, 1, -1);
     
     return ret;
 }

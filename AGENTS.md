@@ -47,6 +47,9 @@ idf.py menuconfig
 | NRF24_CSN_PIN | GPIO_NUM_4 | Radio chip select |
 | LCD_I2C_SDA_PIN | GPIO_NUM_21 | LCD I2C SDA |
 | LCD_I2C_SCL_PIN | GPIO_NUM_22 | LCD I2C SCL |
+| ROTARY_CLK_PIN | GPIO_NUM_34 | KY-040 Clock pin (A) |
+| ROTARY_DT_PIN | GPIO_NUM_35 | KY-040 Data pin (B) |
+| ROTARY_SW_PIN | GPIO_NUM_32 | KY-040 Switch pin (button) |
 
 ### Radio Module (nRF24L01+)
 | Connection | ESP32 Pin |
@@ -67,22 +70,35 @@ idf.py menuconfig
 | SDA | GPIO21 |
 | SCL | GPIO22 |
 
+### KY-040 Rotary Encoder Module
+| Connection | ESP32 Pin |
+|-----------|------------|
+| VCC | 3.3V |
+| GND | GND |
+| CLK | GPIO34 |
+| DT | GPIO35 |
+| SW | GPIO32 |
+
+**Note**: GPIO34 and GPIO35 are input-only pins without internal pull-ups. The KY-040 module typically includes 10kΩ pull-up resistors, but if using bare encoder, add external 10kΩ pull-ups to CLK and DT lines.
+
 ## Component Architecture
 
 ### Main Components
 - **main.c**: Application entry point and main control loop
 - **button_driver.c**: Button press detection and duration timing
+- **rotary_encoder.c**: KY-040 rotary encoder interface and handling
 - **radio_comm.c**: nRF24L01+ radio interface and protocol
 - **lcd_i2c.c**: 1602A LCD driver with I2C/PCF8574 interface
 - **radio-common/**: Shared radio functionality (submodule)
 
 ### Data Flow
 1. Button driver detects press events
-2. Main loop updates time counter when running
-3. Radio comm broadcasts time packets (4Hz)
-4. LCD displays current sport, time, and status
-5. Status LED reflects link quality
-6. Logs provide debugging and status information
+2. Rotary encoder handles sport selection and time adjustment
+3. Main loop updates time counter when running
+4. Radio comm broadcasts time packets (4Hz)
+5. LCD displays current sport, time, and status
+6. Status LED reflects link quality
+7. Logs provide debugging and status information
 
 ## Build System
 
@@ -98,11 +114,13 @@ main/
 ├── CMakeLists.txt    # Component registration
 ├── main.c           # Application logic
 ├── button_driver.c   # Button handling
+├── rotary_encoder.c  # Rotary encoder handling
 ├── radio_comm.c      # Radio interface
 └── lcd_i2c.c         # LCD driver
 
 include/
 ├── button_driver.h   # Button interface
+├── rotary_encoder.h  # Rotary encoder interface
 ├── radio_comm.h      # Radio interface
 └── lcd_i2c.h         # LCD interface
 ```
@@ -118,6 +136,7 @@ include/
 - Serial monitor shows real-time status
 - Radio link quality indicators
 - Button event logging
+- Rotary encoder movement logging
 - Time transmission tracking
 
 ### Common Issues
@@ -125,6 +144,8 @@ include/
 - **Radio Not Responding**: Verify power and pin connections
 - **Compilation Errors**: Check include paths and component dependencies
 - **Link Failures**: Ensure all sources are properly linked
+- **SPI Flash Warnings**: Enable `SPI_FLASH_SUPPORT_BOYA_CHIP` in menuconfig for Boya flash chips
+- **GPIO Pull-up Errors**: GPIO34/35 are input-only, require external pull-ups if not using KY-040 module
 
 ## Protocol Details
 

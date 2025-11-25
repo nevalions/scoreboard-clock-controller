@@ -2,10 +2,10 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 
 #define LCD_I2C_ADDR         0x27
-#define LCD_I2C_PORT         I2C_NUM_0
+
 #define LCD_I2C_SDA_PIN      GPIO_NUM_21
 #define LCD_I2C_SCL_PIN      GPIO_NUM_22
 
@@ -54,14 +54,14 @@
 typedef struct {
     bool initialized;
     uint8_t i2c_addr;
-    i2c_port_t i2c_port;
+    i2c_master_dev_handle_t i2c_dev;
     uint8_t display_function;
     uint8_t display_control;
     uint8_t display_mode;
     uint8_t backlight_state;
 } LcdI2C;
 
-bool lcd_i2c_begin(LcdI2C* lcd, uint8_t addr, i2c_port_t port, gpio_num_t sda_pin, gpio_num_t scl_pin);
+bool lcd_i2c_begin(LcdI2C* lcd, uint8_t addr, gpio_num_t sda_pin, gpio_num_t scl_pin);
 void lcd_i2c_clear(LcdI2C* lcd);
 void lcd_i2c_home(LcdI2C* lcd);
 void lcd_i2c_set_cursor(LcdI2C* lcd, uint8_t col, uint8_t row);

@@ -4,6 +4,7 @@
 #include "../include/button_driver.h"
 #include "../include/radio_comm.h"
 #include "../include/lcd_i2c.h"
+#include "../include/rotary_encoder.h"
 #include "../../radio-common/include/radio_config.h"
 #include "../../sport_selector/include/sport_selector.h"
 
@@ -17,6 +18,7 @@ static const char *TAG = "CONTROLLER";
 
 static RadioComm radio;
 static Button control_button;
+static RotaryEncoder rotary_encoder;
 static LcdI2C lcd;
 static uint8_t sequence = 0;
 static uint16_t current_seconds = 0;
@@ -52,8 +54,11 @@ void app_main(void) {
   // Initialize button
   button_begin(&control_button, CONTROL_BUTTON_PIN);
 
+  // Initialize rotary encoder
+  rotary_encoder_begin(&rotary_encoder, ROTARY_CLK_PIN, ROTARY_DT_PIN, ROTARY_SW_PIN);
+
   // Initialize I2C LCD
-  if (!lcd_i2c_begin(&lcd, LCD_I2C_ADDR, LCD_I2C_PORT, LCD_I2C_SDA_PIN, LCD_I2C_SCL_PIN)) {
+  if (!lcd_i2c_begin(&lcd, LCD_I2C_ADDR, LCD_I2C_SDA_PIN, LCD_I2C_SCL_PIN)) {
     ESP_LOGE(TAG, "Failed to initialize I2C LCD");
     return;
   }
@@ -92,6 +97,9 @@ void app_main(void) {
   while (1) {
     // Update button state
     button_update(&control_button);
+
+    // Update rotary encoder
+    rotary_encoder_update(&rotary_encoder);
 
     uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
 
@@ -141,6 +149,67 @@ void app_main(void) {
     }
 
     was_pressed = now_pressed;
+
+    // Handle rotary encoder for sport/time adjustment
+    RotaryDirection direction = rotary_encoder_get_direction(&rotary_encoder);
+    if (direction != ROTARY_NONE) {
+        if (rotary_encoder_is_button_pressed(&rotary_encoder)) {
+            // Button pressed + rotation = adjust time
+            if (direction == ROTARY_CW && current_seconds < 999) {
+                current_seconds++;
+            } else if (direction == ROTARY_CCW && current_seconds > 0) {
+                current_seconds--;
+            }
+            ESP_LOGI(TAG, "Time adjusted: %d seconds", current_seconds);
+        } else {
+            // Rotation only = cycle through sports
+            static sport_type_t current_sport_type = SPORT_BASKETBALL_24_SEC;
+            
+            if (direction == ROTARY_CW) {
+                // Cycle to next sport
+                switch (current_sport_type) {
+                    case SPORT_BASKETBALL_24_SEC: current_sport_type = SPORT_BASKETBALL_30_SEC; break;
+                    case SPORT_BASKETBALL_30_SEC: current_sport_type = SPORT_FOOTBALL_40_SEC; break;
+                    case SPORT_FOOTBALL_40_SEC: current_sport_type = SPORT_FOOTBALL_25_SEC; break;
+                    case SPORT_FOOTBALL_25_SEC: current_sport_type = SPORT_BASEBALL_15_SEC; break;
+                    case SPORT_BASEBALL_15_SEC: current_sport_type = SPORT_BASEBALL_20_SEC; break;
+                    case SPORT_BASEBALL_20_SEC: current_sport_type = SPORT_BASEBALL_14_SEC; break;
+                    case SPORT_BASEBALL_14_SEC: current_sport_type = SPORT_BASEBALL_19_SEC; break;
+                    case SPORT_BASEBALL_19_SEC: current_sport_type = SPORT_VOLLEYBALL_8_SEC; break;
+                    case SPORT_VOLLEYBALL_8_SEC: current_sport_type = SPORT_LACROSSE_30_SEC; break;
+                    case SPORT_LACROSSE_30_SEC: current_sport_type = SPORT_BASKETBALL_24_SEC; break;
+                    default: current_sport_type = SPORT_BASKETBALL_24_SEC; break;
+                }
+            } else if (direction == ROTARY_CCW) {
+                // Cycle to previous sport
+                switch (current_sport_type) {
+                    case SPORT_BASKETBALL_24_SEC: current_sport_type = SPORT_LACROSSE_30_SEC; break;
+                    case SPORT_BASKETBALL_30_SEC: current_sport_type = SPORT_BASKETBALL_24_SEC; break;
+                    case SPORT_FOOTBALL_40_SEC: current_sport_type = SPORT_BASKETBALL_30_SEC; break;
+                    case SPORT_FOOTBALL_25_SEC: current_sport_type = SPORT_FOOTBALL_40_SEC; break;
+                    case SPORT_BASEBALL_15_SEC: current_sport_type = SPORT_FOOTBALL_25_SEC; break;
+                    case SPORT_BASEBALL_20_SEC: current_sport_type = SPORT_BASEBALL_15_SEC; break;
+                    case SPORT_BASEBALL_14_SEC: current_sport_type = SPORT_BASEBALL_20_SEC; break;
+                    case SPORT_BASEBALL_19_SEC: current_sport_type = SPORT_BASEBALL_14_SEC; break;
+                    case SPORT_VOLLEYBALL_8_SEC: current_sport_type = SPORT_BASEBALL_19_SEC; break;
+                    case SPORT_LACROSSE_30_SEC: current_sport_type = SPORT_VOLLEYBALL_8_SEC; break;
+                    default: current_sport_type = SPORT_BASKETBALL_24_SEC; break;
+                }
+            }
+            
+            set_sport(current_sport_type);
+        }
+    }
+
+    // Handle rotary encoder button press (standalone)
+    static bool last_rotary_button = false;
+    bool current_rotary_button = rotary_encoder_get_button_press(&rotary_encoder);
+    if (current_rotary_button && !last_rotary_button) {
+        ESP_LOGI(TAG, "Rotary encoder button pressed - quick reset to current sport default");
+        is_running = false;
+        current_seconds = current_sport.play_clock_seconds;
+    }
+    last_rotary_button = current_rotary_button;
 
     // Update time if running
     if (is_running && (current_time - last_time >= 1000)) {
