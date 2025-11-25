@@ -24,12 +24,16 @@ static uint8_t sequence = 0;
 static uint16_t current_seconds = 0;
 static bool is_running = false;
 static sport_config_t current_sport = {0};
+static bool null_sent = false;
 
 // Function to set sport by type
 void set_sport(sport_type_t sport_type) {
     current_sport = get_sport_config(sport_type);
     current_seconds = current_sport.play_clock_seconds;
     is_running = false; // Stop timer when changing sport
+    
+    // Reset null tracking when sport changes
+    null_sent = false;
     
     ESP_LOGI(TAG, "Sport set to: %s %s (%d seconds)", 
              current_sport.name, current_sport.variation, current_sport.play_clock_seconds);
@@ -135,6 +139,7 @@ void app_main(void) {
       ESP_LOGI(TAG, "CONTROL button held - resetting timer to sport default");
       is_running = false;
       current_seconds = current_sport.play_clock_seconds;
+      null_sent = false; // Reset null flag on timer reset
       control_button_pressed = false; // Prevent repeat
     }
 
@@ -208,6 +213,7 @@ void app_main(void) {
         ESP_LOGI(TAG, "Rotary encoder button pressed - quick reset to current sport default");
         is_running = false;
         current_seconds = current_sport.play_clock_seconds;
+        null_sent = false; // Reset null flag on timer reset
     }
     last_rotary_button = current_rotary_button;
 
@@ -222,15 +228,16 @@ void app_main(void) {
         // Timer reached zero, stop running and record time
         is_running = false;
         zero_reached_time = current_time;
+        null_sent = false; // Reset null flag when timer restarts
         ESP_LOGI(TAG, "Timer reached zero - stopped");
       }
     }
 
     // After 3 seconds at zero, send null to clear display
     if (!is_running && current_seconds == 0 && zero_reached_time > 0 && 
-        (current_time - zero_reached_time >= 3000)) {
+        (current_time - zero_reached_time >= 3000) && !null_sent) {
       radio_send_time(&radio, 0xFF, sequence++); // Send 0xFF as null indicator
-      zero_reached_time = 0; // Prevent repeated sends
+      null_sent = true; // Mark that null has been sent
       ESP_LOGI(TAG, "Sent null signal to clear display");
     }
 
@@ -247,8 +254,7 @@ void app_main(void) {
       uint8_t time_to_send = current_seconds;
       
       // If we've sent null and are still at zero, keep sending null
-      if (!is_running && current_seconds == 0 && zero_reached_time > 0 && 
-          (current_time - zero_reached_time >= 3000)) {
+      if (null_sent && !is_running && current_seconds == 0) {
         time_to_send = 0xFF; // Send null indicator
       }
       
