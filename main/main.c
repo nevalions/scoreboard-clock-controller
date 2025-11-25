@@ -212,16 +212,26 @@ void app_main(void) {
     last_rotary_button = current_rotary_button;
 
     // Update time if running
+    static uint32_t zero_reached_time = 0;
     if (is_running && (current_time - last_time >= 1000)) {
       if (current_seconds > 0) {
         current_seconds--;
         last_time = current_time;
         ESP_LOGI(TAG, "Timer counting down: %d seconds", current_seconds);
       } else {
-        // Timer reached zero, stop running
+        // Timer reached zero, stop running and record time
         is_running = false;
+        zero_reached_time = current_time;
         ESP_LOGI(TAG, "Timer reached zero - stopped");
       }
+    }
+
+    // After 3 seconds at zero, send null to clear display
+    if (!is_running && current_seconds == 0 && zero_reached_time > 0 && 
+        (current_time - zero_reached_time >= 3000)) {
+      radio_send_time(&radio, 0xFF, sequence++); // Send 0xFF as null indicator
+      zero_reached_time = 0; // Prevent repeated sends
+      ESP_LOGI(TAG, "Sent null signal to clear display");
     }
 
     // Debug: log timer state every 5 seconds
@@ -234,7 +244,15 @@ void app_main(void) {
 
     // Send time update every 250ms to keep time actual
     if (current_time - last_transmit >= 250) {
-      radio_send_time(&radio, current_seconds, sequence++);
+      uint8_t time_to_send = current_seconds;
+      
+      // If we've sent null and are still at zero, keep sending null
+      if (!is_running && current_seconds == 0 && zero_reached_time > 0 && 
+          (current_time - zero_reached_time >= 3000)) {
+        time_to_send = 0xFF; // Send null indicator
+      }
+      
+      radio_send_time(&radio, time_to_send, sequence++);
       last_transmit = current_time;
     }
 
