@@ -12,6 +12,11 @@ static void lcd_i2c_write_nibble(LcdI2C* lcd, uint8_t nibble, bool is_data);
 static void lcd_i2c_pulse_enable(LcdI2C* lcd, uint8_t data);
 
 bool lcd_i2c_begin(LcdI2C* lcd, uint8_t addr, gpio_num_t sda_pin, gpio_num_t scl_pin) {
+    if (!lcd) {
+        ESP_LOGE(TAG, "LCD pointer is NULL");
+        return false;
+    }
+    
     ESP_LOGI(TAG, "Initializing I2C LCD at address 0x%02X", addr);
     
     lcd->i2c_addr = addr;

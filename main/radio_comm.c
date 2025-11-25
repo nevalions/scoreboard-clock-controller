@@ -54,7 +54,7 @@ bool radio_begin(RadioComm *radio, gpio_num_t ce, gpio_num_t csn) {
 }
 
 bool radio_send_time(RadioComm *radio, uint16_t seconds, uint8_t sequence) {
-  if (!radio->base.initialized) {
+  if (!radio || !radio->base.initialized) {
     ESP_LOGE(TAG, "Radio not initialized");
     return false;
   }

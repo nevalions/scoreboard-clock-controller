@@ -29,6 +29,7 @@ typedef struct {
     bool button_pressed;
     bool last_button_state;
     uint32_t button_press_time;
+    bool last_button_press_state;
 } RotaryEncoder;
 
 // Function declarations

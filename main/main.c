@@ -16,6 +16,38 @@ static const char *TAG = "CONTROLLER";
 #define NRF24_CE_PIN GPIO_NUM_5
 #define NRF24_CSN_PIN GPIO_NUM_4
 
+// Timing constants
+#define DEBOUNCE_DELAY_MS 50
+#define ROTARY_RESET_DELAY_MS 100
+#define BUTTON_HOLD_RESET_MS 2000
+#define TIMER_UPDATE_INTERVAL_MS 1000
+#define RADIO_TRANSMIT_INTERVAL_MS 250
+#define ZERO_CLEAR_DELAY_MS 3000
+#define LINK_SUCCESS_WINDOW_MS 5000
+#define LINK_FAILURE_WINDOW_MS 2000
+#define MAIN_LOOP_DELAY_MS 50
+#define GPIO_DEBUG_INTERVAL_MS 1000
+#define TIMER_DEBUG_INTERVAL_MS 5000
+#define LINK_STATUS_LOG_INTERVAL_MS 10000
+#define RADIO_TRANSMIT_TIMEOUT_MS 20
+#define RADIO_MODE_SWITCH_DELAY_MS 2
+
+// Timing constants
+#define DEBOUNCE_DELAY_MS 50
+#define ROTARY_RESET_DELAY_MS 100
+#define BUTTON_HOLD_RESET_MS 2000
+#define TIMER_UPDATE_INTERVAL_MS 1000
+#define RADIO_TRANSMIT_INTERVAL_MS 250
+#define ZERO_CLEAR_DELAY_MS 3000
+#define LINK_SUCCESS_WINDOW_MS 5000
+#define LINK_FAILURE_WINDOW_MS 2000
+#define MAIN_LOOP_DELAY_MS 50
+#define GPIO_DEBUG_INTERVAL_MS 1000
+#define TIMER_DEBUG_INTERVAL_MS 5000
+#define LINK_STATUS_LOG_INTERVAL_MS 10000
+#define RADIO_TRANSMIT_TIMEOUT_MS 20
+#define RADIO_MODE_SWITCH_DELAY_MS 2
+
 static RadioComm radio;
 static Button control_button;
 static RotaryEncoder rotary_encoder;
@@ -25,6 +57,47 @@ static uint16_t current_seconds = 0;
 static bool is_running = false;
 static sport_config_t current_sport = {0};
 static bool null_sent = false;
+
+// Helper functions
+static inline uint32_t get_current_time_ms(void) {
+    return xTaskGetTickCount() * portTICK_PERIOD_MS;
+}
+
+static inline bool time_elapsed(uint32_t start, uint32_t interval) {
+    return (get_current_time_ms() - start) >= interval;
+}
+
+static sport_type_t get_next_sport(sport_type_t current) {
+    switch (current) {
+        case SPORT_BASKETBALL_24_SEC: return SPORT_BASKETBALL_30_SEC;
+        case SPORT_BASKETBALL_30_SEC: return SPORT_FOOTBALL_40_SEC;
+        case SPORT_FOOTBALL_40_SEC: return SPORT_FOOTBALL_25_SEC;
+        case SPORT_FOOTBALL_25_SEC: return SPORT_BASEBALL_15_SEC;
+        case SPORT_BASEBALL_15_SEC: return SPORT_BASEBALL_20_SEC;
+        case SPORT_BASEBALL_20_SEC: return SPORT_BASEBALL_14_SEC;
+        case SPORT_BASEBALL_14_SEC: return SPORT_BASEBALL_19_SEC;
+        case SPORT_BASEBALL_19_SEC: return SPORT_VOLLEYBALL_8_SEC;
+        case SPORT_VOLLEYBALL_8_SEC: return SPORT_LACROSSE_30_SEC;
+        case SPORT_LACROSSE_30_SEC: return SPORT_BASKETBALL_24_SEC;
+        default: return SPORT_BASKETBALL_24_SEC;
+    }
+}
+
+static sport_type_t get_prev_sport(sport_type_t current) {
+    switch (current) {
+        case SPORT_BASKETBALL_24_SEC: return SPORT_LACROSSE_30_SEC;
+        case SPORT_BASKETBALL_30_SEC: return SPORT_BASKETBALL_24_SEC;
+        case SPORT_FOOTBALL_40_SEC: return SPORT_BASKETBALL_30_SEC;
+        case SPORT_FOOTBALL_25_SEC: return SPORT_FOOTBALL_40_SEC;
+        case SPORT_BASEBALL_15_SEC: return SPORT_FOOTBALL_25_SEC;
+        case SPORT_BASEBALL_20_SEC: return SPORT_BASEBALL_15_SEC;
+        case SPORT_BASEBALL_14_SEC: return SPORT_BASEBALL_20_SEC;
+        case SPORT_BASEBALL_19_SEC: return SPORT_BASEBALL_14_SEC;
+        case SPORT_VOLLEYBALL_8_SEC: return SPORT_BASEBALL_19_SEC;
+        case SPORT_LACROSSE_30_SEC: return SPORT_VOLLEYBALL_8_SEC;
+        default: return SPORT_BASKETBALL_24_SEC;
+    }
+}
 
 // Function to set sport by type
 void set_sport(sport_type_t sport_type) {
@@ -88,14 +161,14 @@ void app_main(void) {
   lcd_i2c_printf(&lcd, "Time: %03d", current_seconds);
 
   // Static variables for button state tracking
-  static uint32_t last_time = 0;
-  static uint32_t last_transmit = 0;
-  static uint32_t last_gpio_debug = 0;
+  static uint32_t timer_last_update = 0;
+  static uint32_t radio_last_transmit = 0;
+  static uint32_t debug_last_gpio_output = 0;
   // static bool reset_button_pressed = false;
   // static uint32_t reset_press_time = 0;
-  static bool control_button_pressed = false;
-  static uint32_t control_press_time = 0;
-  static ButtonState last_control_state = BUTTON_RELEASED;
+  static bool control_button_active = false;
+  static uint32_t control_button_press_start = 0;
+  static ButtonState last_control_button_state = BUTTON_RELEASED;
 
   // Main loop
   while (1) {
@@ -105,21 +178,21 @@ void app_main(void) {
     // Update rotary encoder
     rotary_encoder_update(&rotary_encoder);
 
-    uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    uint32_t current_time = get_current_time_ms();
 
     // Log raw GPIO levels for debugging
-    if (current_time - last_gpio_debug > 1000) {
+    if (time_elapsed(debug_last_gpio_output, GPIO_DEBUG_INTERVAL_MS)) {
       ESP_LOGI(TAG, "GPIO level - Control: %d | Button state - Control: %d",
                gpio_get_level(CONTROL_BUTTON_PIN),
                button_is_pressed(&control_button));
-      last_gpio_debug = current_time;
+      debug_last_gpio_output = current_time;
     }
 
     // Check for button state change
-    if (control_button.state != last_control_state) {
+    if (control_button.state != last_control_button_state) {
       ESP_LOGI(TAG, "CONTROL button state changed: %d -> %d",
-               last_control_state, control_button.state);
-      last_control_state = control_button.state;
+               last_control_button_state, control_button.state);
+      last_control_button_state = control_button.state;
     }
 
     // Handle control button - single button for start/stop/reset
@@ -128,29 +201,29 @@ void app_main(void) {
 
     // Detect button press (rising edge)
     if (now_pressed && !was_pressed) {
-      control_button_pressed = true;
-      control_press_time = current_time;
+      control_button_active = true;
+      control_button_press_start = current_time;
       ESP_LOGI(TAG, "CONTROL button pressed");
     }
 
     // Check for hold (2 seconds) - reset timer to sport default
-    if (control_button_pressed && now_pressed &&
-        (current_time - control_press_time >= 2000)) {
+    if (control_button_active && now_pressed &&
+        time_elapsed(control_button_press_start, BUTTON_HOLD_RESET_MS)) {
       ESP_LOGI(TAG, "CONTROL button held - resetting timer to sport default");
       is_running = false;
       current_seconds = current_sport.play_clock_seconds;
       null_sent = false; // Reset null flag on timer reset
-      control_button_pressed = false; // Prevent repeat
+      control_button_active = false; // Prevent repeat
     }
 
     // Check for release (short press) - toggle start/stop
-    if (control_button_pressed && !now_pressed) {
-      if (current_time - control_press_time < 2000) {
+    if (control_button_active && !now_pressed) {
+      if (!time_elapsed(control_button_press_start, BUTTON_HOLD_RESET_MS)) {
         ESP_LOGI(TAG, "CONTROL button released - toggling timer (running: %d)",
                  !is_running);
         is_running = !is_running;
       }
-      control_button_pressed = false;
+      control_button_active = false;
     }
 
     was_pressed = now_pressed;
@@ -172,34 +245,10 @@ void app_main(void) {
             
             if (direction == ROTARY_CW) {
                 // Cycle to next sport
-                switch (current_sport_type) {
-                    case SPORT_BASKETBALL_24_SEC: current_sport_type = SPORT_BASKETBALL_30_SEC; break;
-                    case SPORT_BASKETBALL_30_SEC: current_sport_type = SPORT_FOOTBALL_40_SEC; break;
-                    case SPORT_FOOTBALL_40_SEC: current_sport_type = SPORT_FOOTBALL_25_SEC; break;
-                    case SPORT_FOOTBALL_25_SEC: current_sport_type = SPORT_BASEBALL_15_SEC; break;
-                    case SPORT_BASEBALL_15_SEC: current_sport_type = SPORT_BASEBALL_20_SEC; break;
-                    case SPORT_BASEBALL_20_SEC: current_sport_type = SPORT_BASEBALL_14_SEC; break;
-                    case SPORT_BASEBALL_14_SEC: current_sport_type = SPORT_BASEBALL_19_SEC; break;
-                    case SPORT_BASEBALL_19_SEC: current_sport_type = SPORT_VOLLEYBALL_8_SEC; break;
-                    case SPORT_VOLLEYBALL_8_SEC: current_sport_type = SPORT_LACROSSE_30_SEC; break;
-                    case SPORT_LACROSSE_30_SEC: current_sport_type = SPORT_BASKETBALL_24_SEC; break;
-                    default: current_sport_type = SPORT_BASKETBALL_24_SEC; break;
-                }
+                current_sport_type = get_next_sport(current_sport_type);
             } else if (direction == ROTARY_CCW) {
                 // Cycle to previous sport
-                switch (current_sport_type) {
-                    case SPORT_BASKETBALL_24_SEC: current_sport_type = SPORT_LACROSSE_30_SEC; break;
-                    case SPORT_BASKETBALL_30_SEC: current_sport_type = SPORT_BASKETBALL_24_SEC; break;
-                    case SPORT_FOOTBALL_40_SEC: current_sport_type = SPORT_BASKETBALL_30_SEC; break;
-                    case SPORT_FOOTBALL_25_SEC: current_sport_type = SPORT_FOOTBALL_40_SEC; break;
-                    case SPORT_BASEBALL_15_SEC: current_sport_type = SPORT_FOOTBALL_25_SEC; break;
-                    case SPORT_BASEBALL_20_SEC: current_sport_type = SPORT_BASEBALL_15_SEC; break;
-                    case SPORT_BASEBALL_14_SEC: current_sport_type = SPORT_BASEBALL_20_SEC; break;
-                    case SPORT_BASEBALL_19_SEC: current_sport_type = SPORT_BASEBALL_14_SEC; break;
-                    case SPORT_VOLLEYBALL_8_SEC: current_sport_type = SPORT_BASEBALL_19_SEC; break;
-                    case SPORT_LACROSSE_30_SEC: current_sport_type = SPORT_VOLLEYBALL_8_SEC; break;
-                    default: current_sport_type = SPORT_BASKETBALL_24_SEC; break;
-                }
+                current_sport_type = get_prev_sport(current_sport_type);
             }
             
             set_sport(current_sport_type);
@@ -218,39 +267,39 @@ void app_main(void) {
     last_rotary_button = current_rotary_button;
 
     // Update time if running
-    static uint32_t zero_reached_time = 0;
-    if (is_running && (current_time - last_time >= 1000)) {
+    static uint32_t zero_reached_timestamp = 0;
+    if (is_running && time_elapsed(timer_last_update, TIMER_UPDATE_INTERVAL_MS)) {
       if (current_seconds > 0) {
         current_seconds--;
-        last_time = current_time;
+        timer_last_update = current_time;
         ESP_LOGI(TAG, "Timer counting down: %d seconds", current_seconds);
       } else {
         // Timer reached zero, stop running and record time
         is_running = false;
-        zero_reached_time = current_time;
+        zero_reached_timestamp = current_time;
         null_sent = false; // Reset null flag when timer restarts
         ESP_LOGI(TAG, "Timer reached zero - stopped");
       }
     }
 
     // After 3 seconds at zero, send null to clear display
-    if (!is_running && current_seconds == 0 && zero_reached_time > 0 && 
-        (current_time - zero_reached_time >= 3000) && !null_sent) {
+    if (!is_running && current_seconds == 0 && zero_reached_timestamp > 0 && 
+        time_elapsed(zero_reached_timestamp, ZERO_CLEAR_DELAY_MS) && !null_sent) {
       radio_send_time(&radio, 0xFF, sequence++); // Send 0xFF as null indicator
       null_sent = true; // Mark that null has been sent
       ESP_LOGI(TAG, "Sent null signal to clear display");
     }
 
     // Debug: log timer state every 5 seconds
-    static uint32_t last_debug = 0;
-    if (current_time - last_debug >= 5000) {
+    static uint32_t debug_last_timer_output = 0;
+    if (time_elapsed(debug_last_timer_output, TIMER_DEBUG_INTERVAL_MS)) {
       ESP_LOGI(TAG, "Timer state - running: %d, seconds: %d", is_running,
                current_seconds);
-      last_debug = current_time;
+      debug_last_timer_output = current_time;
     }
 
     // Send time update every 250ms to keep time actual
-    if (current_time - last_transmit >= 250) {
+    if (time_elapsed(radio_last_transmit, RADIO_TRANSMIT_INTERVAL_MS)) {
       uint8_t time_to_send = current_seconds;
       
       // If we've sent null and are still at zero, keep sending null
@@ -259,12 +308,12 @@ void app_main(void) {
       }
       
       radio_send_time(&radio, time_to_send, sequence++);
-      last_transmit = current_time;
+      radio_last_transmit = current_time;
     }
 
     // Update link status LED and logging
     radio_update_link_status(&radio);
 
-    vTaskDelay(pdMS_TO_TICKS(50)); // 20Hz update rate
+    vTaskDelay(pdMS_TO_TICKS(MAIN_LOOP_DELAY_MS)); // 20Hz update rate
   }
 }

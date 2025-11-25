@@ -7,6 +7,8 @@
 static const char *TAG = "BUTTON_DRIVER";
 
 bool button_begin(Button* button, gpio_num_t pin) {
+  if (!button) return false;
+  
   button->pin = pin;
   button->state = BUTTON_RELEASED;
   button->last_state = BUTTON_RELEASED;
@@ -28,6 +30,8 @@ bool button_begin(Button* button, gpio_num_t pin) {
 }
 
 void button_update(Button* button) {
+  if (!button) return;
+  
   bool current_level = gpio_get_level(button->pin);
   uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
   
@@ -51,6 +55,7 @@ void button_update(Button* button) {
 }
 
 bool button_is_pressed(Button* button) {
+  if (!button) return false;
   return button->state == BUTTON_PRESSED;
 }
 

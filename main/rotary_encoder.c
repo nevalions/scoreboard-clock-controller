@@ -7,6 +7,8 @@
 static const char *TAG = "ROTARY_ENCODER";
 
 bool rotary_encoder_begin(RotaryEncoder* encoder, gpio_num_t clk_pin, gpio_num_t dt_pin, gpio_num_t sw_pin) {
+    if (!encoder) return false;
+    
     encoder->clk_pin = clk_pin;
     encoder->dt_pin = dt_pin;
     encoder->sw_pin = sw_pin;
@@ -18,6 +20,7 @@ bool rotary_encoder_begin(RotaryEncoder* encoder, gpio_num_t clk_pin, gpio_num_t
     encoder->button_pressed = false;
     encoder->last_button_state = true;
     encoder->button_press_time = 0;
+    encoder->last_button_press_state = false;
 
     // Configure CLK pin (GPIO34 is input-only, no pull-up)
     gpio_config_t clk_conf = {
@@ -60,6 +63,8 @@ bool rotary_encoder_begin(RotaryEncoder* encoder, gpio_num_t clk_pin, gpio_num_t
 }
 
 void rotary_encoder_update(RotaryEncoder* encoder) {
+    if (!encoder) return;
+    
     uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
     
     // Read current states
@@ -106,6 +111,7 @@ void rotary_encoder_update(RotaryEncoder* encoder) {
 }
 
 RotaryDirection rotary_encoder_get_direction(RotaryEncoder* encoder) {
+    if (!encoder) return ROTARY_NONE;
     return encoder->direction;
 }
 
@@ -124,10 +130,11 @@ bool rotary_encoder_is_button_pressed(RotaryEncoder* encoder) {
 }
 
 bool rotary_encoder_get_button_press(RotaryEncoder* encoder) {
-    static bool last_pressed = false;
+    if (!encoder) return false;
+    
     bool current_pressed = encoder->button_pressed;
-    bool press_detected = current_pressed && !last_pressed;
-    last_pressed = current_pressed;
+    bool press_detected = current_pressed && !encoder->last_button_press_state;
+    encoder->last_button_press_state = current_pressed;
     return press_detected;
 }
 
