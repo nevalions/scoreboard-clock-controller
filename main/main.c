@@ -308,13 +308,23 @@ void app_main(void) {
         time_to_send = 0xFF; // Send null indicator
       }
       
-      // Determine color based on time value: orange main, red when < 5 seconds
+      // Determine color based on time value: orange main, gradient to deeper red as time decreases
       uint8_t r, g, b;
       if (time_to_send < 5 && time_to_send != 0xFF) {
-        // Red for less than 5 seconds
-        r = 255; g = 0; b = 0;
+        // Gradient from orange to deeper red as time counts down (4→1 seconds)
+        // 4 sec: (255, 120, 0) - orange-red
+        // 3 sec: (255, 80, 0)  - deeper orange-red  
+        // 2 sec: (255, 40, 0)  - deep orange-red
+        // 1 sec: (255, 20, 0)  - very deep orange-red
+        switch (time_to_send) {
+          case 4: r = 255; g = 120; b = 0; break;
+          case 3: r = 255; g = 80;  b = 0; break;
+          case 2: r = 255; g = 40;  b = 0; break;
+          case 1: r = 255; g = 20;  b = 0; break;
+          default: r = 255; g = 0; b = 0; break; // fallback red
+        }
       } else {
-        // Orange for normal operation
+        // Orange for normal operation (5+ seconds)
         r = 255; g = 165; b = 0;
       }
       
