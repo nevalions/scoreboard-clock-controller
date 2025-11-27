@@ -4,6 +4,7 @@
 - **🚫 AGENTS/LLMS**: Build only, no flashing
 - **✅ Users**: Can build and flash normally
 - **📝 Documentation**: Update README.md for user-facing changes
+- **🚫 AGENTS.md**: Do not add AGENTS.md to README.md or any user-facing documentation
 
 ## Quick Start
 ```bash
