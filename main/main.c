@@ -308,13 +308,16 @@ void app_main(void) {
         time_to_send = 0xFF; // Send null indicator
       }
       
-      // Determine color based on time value: orange main, deep orange-red for 5-0 seconds
+      // Determine color based on time value: orange main, deep orange-red for 5-1 seconds, deep red for zero
       uint8_t r, g, b;
       if (time_to_send == 0xFF) {
         // Null signal - use deep red to indicate display clear
         r = 255; g = 0; b = 0;
+      } else if (time_to_send == 0) {
+        // Timer zero - use deep red to indicate time expired
+        r = 255; g = 0; b = 0;
       } else if (time_to_send < 5) {
-        // Deep orange-red for 5-1 seconds and timer zero
+        // Deep orange-red for 5-1 seconds
         r = 255; g = 40; b = 0;
       } else {
         // Orange for normal operation (5+ seconds)
