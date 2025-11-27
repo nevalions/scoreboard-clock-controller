@@ -85,9 +85,9 @@ bool radio_send_time(RadioComm *radio, uint16_t seconds, uint8_t r, uint8_t g, u
   nrf24_write_payload(&radio->base, payload, RADIO_PAYLOAD_SIZE);
   gpio_set_level(radio->base.ce_pin, 1);
   
-  // Wait for transmission to complete (max 20ms to allow for retries)
-  uint32_t start_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
-  while ((xTaskGetTickCount() * portTICK_PERIOD_MS) - start_time < 20) {
+   // Wait for transmission to complete (max 30ms to allow for retries)
+   uint32_t start_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+   while ((xTaskGetTickCount() * portTICK_PERIOD_MS) - start_time < 30) {
     uint8_t status = nrf24_get_status(&radio->base);
     if (status & NRF24_STATUS_TX_DS) {
       // Transmission successful
@@ -150,7 +150,7 @@ void radio_update_link_status(RadioComm* radio) {
   } else {
     uint16_t total_attempts = radio->success_count + radio->failure_count;
     float success_rate = (float)radio->success_count / total_attempts;
-    radio->link_good = success_rate > 0.7 && recent_success;
+    radio->link_good = success_rate > 0.5 && recent_success;
   }
 
   // Update LED based on link status
