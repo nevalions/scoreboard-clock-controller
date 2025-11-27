@@ -53,7 +53,7 @@ bool radio_begin(RadioComm *radio, gpio_num_t ce, gpio_num_t csn) {
   return true;
 }
 
-bool radio_send_time(RadioComm *radio, uint16_t seconds, uint8_t sequence) {
+bool radio_send_time(RadioComm *radio, uint16_t seconds, uint8_t r, uint8_t g, uint8_t b, uint8_t sequence) {
   if (!radio || !radio->base.initialized) {
     ESP_LOGE(TAG, "Radio not initialized");
     return false;
@@ -64,12 +64,15 @@ bool radio_send_time(RadioComm *radio, uint16_t seconds, uint8_t sequence) {
   // Flush any pending TX data
   radio_flush_tx(radio);
 
-  // Prepare payload - only seconds and sequence
+  // Prepare payload - seconds, RGB, and sequence
   uint8_t payload[RADIO_PAYLOAD_SIZE];
   memset(payload, 0, RADIO_PAYLOAD_SIZE);
   payload[0] = (seconds >> 8) & 0xFF;
   payload[1] = seconds & 0xFF;
-  payload[2] = sequence;
+  payload[2] = r;
+  payload[3] = g;
+  payload[4] = b;
+  payload[5] = sequence;
 
   // Set to transmitter mode (clear PRIM_RX bit)
   uint8_t config = nrf24_read_register(&radio->base, NRF24_REG_CONFIG);
@@ -92,7 +95,7 @@ bool radio_send_time(RadioComm *radio, uint16_t seconds, uint8_t sequence) {
       gpio_set_level(radio->base.ce_pin, 0);
       radio->success_count++;
       radio->last_success_time = current_time;
-      ESP_LOGI(TAG, "Time sent: %d seconds, seq: %d (success #%d)", seconds, sequence, radio->success_count);
+      ESP_LOGI(TAG, "Time sent: %d seconds, RGB(%d,%d,%d), seq: %d (success #%d)", seconds, r, g, b, sequence, radio->success_count);
       return true;
     }
     if (status & NRF24_STATUS_MAX_RT) {
