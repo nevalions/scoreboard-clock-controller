@@ -21,22 +21,7 @@ static const char *TAG = "CONTROLLER";
 #define DEBOUNCE_DELAY_MS 50
 #define ROTARY_RESET_DELAY_MS 100
 #define BUTTON_HOLD_RESET_MS 2000
-#define TIMER_UPDATE_INTERVAL_MS 1000
-#define RADIO_TRANSMIT_INTERVAL_MS 250
-#define ZERO_CLEAR_DELAY_MS 3000
-#define LINK_SUCCESS_WINDOW_MS 5000
-#define LINK_FAILURE_WINDOW_MS 2000
-#define MAIN_LOOP_DELAY_MS 50
-#define GPIO_DEBUG_INTERVAL_MS 1000
-#define TIMER_DEBUG_INTERVAL_MS 5000
-#define LINK_STATUS_LOG_INTERVAL_MS 10000
-#define RADIO_TRANSMIT_TIMEOUT_MS 20
-#define RADIO_MODE_SWITCH_DELAY_MS 2
-
-// Timing constants
-#define DEBOUNCE_DELAY_MS 50
-#define ROTARY_RESET_DELAY_MS 100
-#define BUTTON_HOLD_RESET_MS 2000
+#define BUTTON_DOUBLE_TAP_WINDOW_MS 500
 #define TIMER_UPDATE_INTERVAL_MS 1000
 #define RADIO_TRANSMIT_INTERVAL_MS 250
 #define ZERO_CLEAR_DELAY_MS 3000
@@ -196,8 +181,10 @@ void app_main(void) {
       last_control_button_state = control_button.state;
     }
 
-    // Handle control button - single button for start/stop/reset
+    // Handle control button - single button for start/stop/reset with double tap detection
     static bool was_pressed = false;
+    static uint32_t last_press_time = 0;
+    static uint32_t press_count = 0;
     bool now_pressed = button_is_pressed(&control_button);
 
     // Detect button press (rising edge)
@@ -205,6 +192,34 @@ void app_main(void) {
       control_button_active = true;
       control_button_press_start = current_time;
       ESP_LOGI(TAG, "CONTROL button pressed");
+      
+      // Handle double tap detection
+      press_count++;
+      if (press_count == 1) {
+        last_press_time = current_time;
+        ESP_LOGI(TAG, "First press detected, count: %d", press_count);
+      } else if (press_count == 2) {
+        if ((current_time - last_press_time) <= BUTTON_DOUBLE_TAP_WINDOW_MS) {
+          // Double tap detected - change sport
+          static sport_type_t current_sport_type = SPORT_BASKETBALL_24_SEC;
+          current_sport_type = get_next_sport(current_sport_type);
+          set_sport(current_sport_type);
+          ESP_LOGW(TAG, "Double tap detected - changed sport to: %s %s", 
+                   current_sport.name, current_sport.variation);
+          press_count = 0; // Reset counter
+        } else {
+          // Too much time between presses, reset and count as first press
+          last_press_time = current_time;
+          press_count = 1;
+          ESP_LOGI(TAG, "Press window expired, counting as first press");
+        }
+      }
+    }
+
+    // Reset double tap counter if window expires
+    if (press_count > 0 && (current_time - last_press_time) > BUTTON_DOUBLE_TAP_WINDOW_MS) {
+      ESP_LOGI(TAG, "Double tap window expired, resetting count from %d", press_count);
+      press_count = 0;
     }
 
     // Check for hold (2 seconds) - reset timer to sport default
@@ -215,6 +230,7 @@ void app_main(void) {
       current_seconds = current_sport.play_clock_seconds;
       null_sent = false; // Reset null flag on timer reset
       control_button_active = false; // Prevent repeat
+      press_count = 0; // Reset double tap counter on hold
     }
 
     // Check for release (short press) - toggle start/stop
