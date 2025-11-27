@@ -285,8 +285,8 @@ void app_main(void) {
     // After 3 seconds at zero, send null to clear display
     if (!is_running && current_seconds == 0 && zero_reached_timestamp > 0 && 
         time_elapsed(zero_reached_timestamp, ZERO_CLEAR_DELAY_MS) && !null_sent) {
-      // Send null with orange color (default)
-      radio_send_time(&radio, 0xFF, 255, 165, 0, sequence++); // Send 0xFF as null indicator with orange color
+      // Send null with deep red color
+      radio_send_time(&radio, 0xFF, 255, 0, 0, sequence++); // Send 0xFF as null indicator with deep red color
       null_sent = true; // Mark that null has been sent
       ESP_LOGI(TAG, "Sent null signal to clear display");
     }
@@ -308,10 +308,13 @@ void app_main(void) {
         time_to_send = 0xFF; // Send null indicator
       }
       
-      // Determine color based on time value: orange main, deep orange-red for 5-1 seconds
+      // Determine color based on time value: orange main, deep orange-red for 5-0 seconds
       uint8_t r, g, b;
-      if (time_to_send < 5 && time_to_send != 0xFF) {
-        // Deep orange-red for 5-1 seconds
+      if (time_to_send == 0xFF) {
+        // Null signal - use deep red to indicate display clear
+        r = 255; g = 0; b = 0;
+      } else if (time_to_send < 5) {
+        // Deep orange-red for 5-1 seconds and timer zero
         r = 255; g = 40; b = 0;
       } else {
         // Orange for normal operation (5+ seconds)
