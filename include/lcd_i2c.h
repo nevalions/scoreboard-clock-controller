@@ -4,19 +4,19 @@
 #include <stdbool.h>
 #include "driver/i2c_master.h"
 
-#define LCD_I2C_ADDR         0x20
+#define LCD_I2C_ADDR         0x27
 
 #define LCD_I2C_SDA_PIN      GPIO_NUM_21
 #define LCD_I2C_SCL_PIN      GPIO_NUM_22
 
-#define LCD_RS_MASK          0x01
-#define LCD_RW_MASK          0x02
-#define LCD_EN_MASK          0x04
-#define LCD_BACKLIGHT_MASK   0x08  // PCF8574T bit 3 for backlight
-#define LCD_D4_MASK          0x10
-#define LCD_D5_MASK          0x20
-#define LCD_D6_MASK          0x40
-#define LCD_D7_MASK          0x80
+#define LCD_RS_MASK          0x80   // P7
+#define LCD_RW_MASK          0x40   // P6  
+#define LCD_EN_MASK          0x20   // P5
+#define LCD_BACKLIGHT_MASK   0x00   // Backlight is fixed ON, not controlled by PCF8574
+#define LCD_D4_MASK          0x10   // P4
+#define LCD_D5_MASK          0x08   // P3
+#define LCD_D6_MASK          0x04   // P2
+#define LCD_D7_MASK          0x02   // P1
 
 #define LCD_CLEAR_DISPLAY       0x01
 #define LCD_RETURN_HOME         0x02
@@ -74,3 +74,9 @@ void i2c_scan(gpio_num_t sda_pin, gpio_num_t scl_pin);
 
 // LCD testing function
 void lcd_i2c_test_backlight(LcdI2C* lcd);
+
+// Pin scanning function to determine real PCF8574 to LCD mapping
+void lcd_debug_pin_scan(LcdI2C* lcd);
+
+// Confirmation test to verify board usability
+void lcd_debug_all_pins_test(LcdI2C* lcd);

@@ -1,13 +1,13 @@
-#include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include "../../radio-common/include/radio_config.h"
+#include "../../sport_selector/include/colors.h"
+#include "../../sport_selector/include/sport_selector.h"
 #include "../include/button_driver.h"
 #include "../include/lcd_i2c.h"
 #include "../include/radio_comm.h"
 #include "../include/rotary_encoder.h"
-#include "../../radio-common/include/radio_config.h"
-#include "../../sport_selector/include/colors.h"
-#include "../../sport_selector/include/sport_selector.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 static const char *TAG = "CONTROLLER";
 
@@ -46,20 +46,20 @@ static bool null_sent = false;
 
 // Helper functions
 static inline uint32_t get_current_time_ms(void) {
-    return xTaskGetTickCount() * portTICK_PERIOD_MS;
+  return xTaskGetTickCount() * portTICK_PERIOD_MS;
 }
 
 static inline bool time_elapsed(uint32_t start, uint32_t interval) {
-    return (get_current_time_ms() - start) >= interval;
+  return (get_current_time_ms() - start) >= interval;
 }
 
 // Update LCD display with current sport and time
 static void update_lcd_display(void) {
-    lcd_i2c_clear(&lcd);
-    lcd_i2c_set_cursor(&lcd, 0, 0);
-    lcd_i2c_printf(&lcd, "%s %s", current_sport.name, current_sport.variation);
-    lcd_i2c_set_cursor(&lcd, 0, 1);
-    lcd_i2c_printf(&lcd, "Time: %03d", current_seconds);
+  lcd_i2c_clear(&lcd);
+  lcd_i2c_set_cursor(&lcd, 0, 0);
+  lcd_i2c_printf(&lcd, "%s %s", current_sport.name, current_sport.variation);
+  lcd_i2c_set_cursor(&lcd, 0, 1);
+  lcd_i2c_printf(&lcd, "Time: %03d", current_seconds);
 }
 
 static sport_type_t get_next_sport(sport_type_t current) {
@@ -159,6 +159,13 @@ void app_main(void) {
     return;
   }
 
+  ESP_LOGI(TAG, "Running LCD PIN SCAN test!");
+  lcd_debug_pin_scan(&lcd);
+  vTaskDelay(pdMS_TO_TICKS(1000));
+  
+  ESP_LOGI(TAG, "Running ALL PINS HIGH/LOW confirmation test...");
+  lcd_debug_all_pins_test(&lcd);
+
   // Initialize radio
   if (!radio_begin(&radio, NRF24_CE_PIN, NRF24_CSN_PIN)) {
     ESP_LOGE(TAG, "Failed to initialize radio");
@@ -198,10 +205,11 @@ void app_main(void) {
     // Log raw GPIO levels for debugging
     if (time_elapsed(debug_last_gpio_output, GPIO_DEBUG_INTERVAL_MS)) {
       int sw_raw = gpio_get_level(ROTARY_SW_PIN);
-      ESP_LOGI(TAG, "GPIO level - Control: %d | Button state - Control: %d | SW raw: %d",
-               gpio_get_level(CONTROL_BUTTON_PIN),
-               button_is_pressed(&control_button),
-               sw_raw);
+      ESP_LOGI(
+          TAG,
+          "GPIO level - Control: %d | Button state - Control: %d | SW raw: %d",
+          gpio_get_level(CONTROL_BUTTON_PIN),
+          button_is_pressed(&control_button), sw_raw);
       ESP_LOGI("SWTEST", "SW raw level: %d", sw_raw);
       debug_last_gpio_output = current_time;
     }
@@ -236,11 +244,11 @@ void app_main(void) {
           // Double tap detected - change sport
           static sport_type_t current_sport_type = SPORT_BASKETBALL_24_SEC;
           current_sport_type = get_next_sport(current_sport_type);
-            set_sport(current_sport_type);
-            update_lcd_display();
+          set_sport(current_sport_type);
+          update_lcd_display();
 
-            ESP_LOGI(TAG, "Sport changed to: %s %s",
-                     current_sport.name, current_sport.variation);
+          ESP_LOGI(TAG, "Sport changed to: %s %s", current_sport.name,
+                   current_sport.variation);
           press_count = 0; // Reset counter
         } else {
           // Too much time between presses, reset and count as first press
@@ -313,7 +321,8 @@ void app_main(void) {
         sport_config_t selected_sport = get_sport_config(selected_sport_type);
         lcd_i2c_clear(&lcd);
         lcd_i2c_set_cursor(&lcd, 0, 0);
-        lcd_i2c_printf(&lcd, ">%s %s", selected_sport.name, selected_sport.variation);
+        lcd_i2c_printf(&lcd, ">%s %s", selected_sport.name,
+                       selected_sport.variation);
         lcd_i2c_set_cursor(&lcd, 0, 1);
         lcd_i2c_printf(&lcd, "Time: %03d", current_seconds);
 
@@ -334,7 +343,8 @@ void app_main(void) {
     if (rotary_encoder_get_button_press(&rotary_encoder)) {
       // Check if selected sport is different from current sport
       sport_config_t selected_sport = get_sport_config(selected_sport_type);
-      if (selected_sport.play_clock_seconds != current_sport.play_clock_seconds ||
+      if (selected_sport.play_clock_seconds !=
+              current_sport.play_clock_seconds ||
           strcmp(selected_sport.name, current_sport.name) != 0) {
         // Different sport selected - confirm and change
         set_sport(selected_sport_type);
@@ -344,12 +354,11 @@ void app_main(void) {
         // Same sport selected - quick reset to sport default
         is_running = false;
         current_seconds = current_sport.play_clock_seconds;
-        null_sent = false;  // Reset null flag
+        null_sent = false; // Reset null flag
 
-        ESP_LOGI(TAG, "Rotary button: QUICK RESET → %d sec",
-                 current_seconds);
+        ESP_LOGI(TAG, "Rotary button: QUICK RESET → %d sec", current_seconds);
       }
-      
+
       update_lcd_display();
     }
 
