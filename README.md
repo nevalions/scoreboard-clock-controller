@@ -81,13 +81,16 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 
 ### Rotary Encoder Controls
 
-- **Rotation Only**: Cycle through available sports
+- **Rotation Only**: Browse through available sports (selection mode)
   - **Clockwise**: Next sport in sequence
   - **Counter-clockwise**: Previous sport in sequence
+  - **LCD shows**: `>Sport Name` (with `>` prefix indicating selection mode)
+- **Button Press**: Confirm sport selection OR quick reset
+  - **If different sport selected**: Confirms and changes to selected sport
+  - **If same sport selected**: Quick reset to sport's default time
 - **Button + Rotation**: Adjust time manually
   - **Clockwise**: Increment time (max 999 seconds)
   - **Counter-clockwise**: Decrement time (min 0 seconds)
-- **Button Press (standalone)**: Quick reset to current sport's default time
 
 ### Supported Sports
 
@@ -107,8 +110,12 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 
 ### LCD Display Information
 
-- **Line 1**: Current sport name and variation
+- **Line 1**: Sport name and variation (with `>` prefix in selection mode)
 - **Line 2**: Current time in seconds (formatted as 3 digits)
+
+**Display Modes:**
+- **Normal**: `Basketball 24sec` (current active sport)
+- **Selection**: `>Basketball 24sec` (browsing, press to confirm)
 
 ## Installation & Setup
 
@@ -158,7 +165,7 @@ Use `idf.py menuconfig` to access:
 ### Expected Behavior
 
 1. Controller starts with basketball 24-second shot clock
-2. User can rotate encoder to select different sports
+2. User can rotate encoder to browse sports (selection mode with `>` indicator)
 3. Button controls timing (start/stop/reset)
 4. Time broadcasts continuously when running
 5. After reaching zero, display clears after 3-second delay
@@ -191,6 +198,7 @@ Use `idf.py menuconfig` to access:
 - **LED always off**: Verify radio module and antenna connection
 - **Time not advancing**: Check button press detection and timing logic
 - **Rotary encoder not working**: Verify CLK/DT connections and pull-up resistors
+- **Sport selection not working**: Check rotary encoder button press detection
 - **LCD not displaying**: Check I2C connections and address (0x27)
 - **Build failures**: Ensure ESP-IDF environment is properly configured
 

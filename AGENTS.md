@@ -119,18 +119,19 @@ idf.py flash monitor
 
 ### Data Flow
 1. Button driver detects press events and duration
-2. Rotary encoder handles sport selection and time adjustment
+2. Rotary encoder handles sport browsing, selection, and time adjustment
 3. Main loop updates time counter when running
 4. Radio comm broadcasts time packets (4Hz) with sequence numbers
-5. LCD displays current sport, time, and status information
+5. LCD displays current sport, time, and selection status
 6. Status LED reflects radio link quality in real-time
 7. Serial logs provide debugging and status information
 
 ### Sport Management
-- **Sport Selection**: Rotary encoder cycles through available sports
+- **Sport Selection**: Rotary encoder browses sports with preview before confirmation
+- **Sport Confirmation**: Rotary encoder button confirms selection or quick resets
 - **Time Adjustment**: Button + rotation adjusts time manually
 - **Default Times**: Each sport has configurable play clock durations
-- **Quick Reset**: Rotary encoder button resets to sport default
+- **Selection Mode**: LCD shows `>` prefix when browsing sports
 
 ## Build System
 
