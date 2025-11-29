@@ -246,43 +246,63 @@ void app_main(void) {
 
     was_pressed = now_pressed;
 
-    // Handle rotary encoder for sport/time adjustment
-    RotaryDirection direction = rotary_encoder_get_direction(&rotary_encoder);
-    if (direction != ROTARY_NONE) {
-        if (rotary_encoder_is_button_pressed(&rotary_encoder)) {
-            // Button pressed + rotation = adjust time
-            if (direction == ROTARY_CW && current_seconds < 999) {
+    //---------------------------------------------------------
+    // ROTARY HANDLING (single action per detent)
+    //---------------------------------------------------------
+
+    static RotaryDirection last_action_dir = ROTARY_NONE;
+    RotaryDirection dir = rotary_encoder_get_direction(&rotary_encoder);
+
+    // 1. Only process the FIRST event of the detent
+    if (dir != ROTARY_NONE && last_action_dir == ROTARY_NONE)
+    {
+        static sport_type_t current_sport_type = SPORT_BASKETBALL_24_SEC;
+
+        if (rotary_encoder_is_button_pressed(&rotary_encoder))
+        {
+            // Adjust time when button held
+            if (dir == ROTARY_CW && current_seconds < 999)
                 current_seconds++;
-            } else if (direction == ROTARY_CCW && current_seconds > 0) {
+            else if (dir == ROTARY_CCW && current_seconds > 0)
                 current_seconds--;
-            }
-            ESP_LOGI(TAG, "Time adjusted: %d seconds", current_seconds);
-        } else {
-            // Rotation only = cycle through sports
-            static sport_type_t current_sport_type = SPORT_BASKETBALL_24_SEC;
-            
-            if (direction == ROTARY_CW) {
-                // Cycle to next sport
-                current_sport_type = get_next_sport(current_sport_type);
-            } else if (direction == ROTARY_CCW) {
-                // Cycle to previous sport
-                current_sport_type = get_prev_sport(current_sport_type);
-            }
-            
-            set_sport(current_sport_type);
+
+            ESP_LOGI(TAG, "Time adjusted by rotary: %d", current_seconds);
         }
+        else
+        {
+            // Change sport on rotation without button
+            if (dir == ROTARY_CW)
+                current_sport_type = get_next_sport(current_sport_type);
+            else
+                current_sport_type = get_prev_sport(current_sport_type);
+
+            set_sport(current_sport_type);
+
+            ESP_LOGI(TAG, "Sport changed to: %s %s",
+                     current_sport.name, current_sport.variation);
+        }
+
+        // Mark that we've taken action for this detent
+        last_action_dir = dir;
     }
 
-    // Handle rotary encoder button press (standalone)
-    static bool last_rotary_button = false;
-    bool current_rotary_button = rotary_encoder_get_button_press(&rotary_encoder);
-    if (current_rotary_button && !last_rotary_button) {
-        ESP_LOGI(TAG, "Rotary encoder button pressed - quick reset to current sport default");
+    // 2. Reset the state ONLY when encoder direction returns to NONE
+    if (dir == ROTARY_NONE)
+    {
+        last_action_dir = ROTARY_NONE;
+    }
+
+    // --- 2: handle rotary button Press (edge detection) ---
+    if (rotary_encoder_get_button_press(&rotary_encoder))
+    {
+        // Quick reset to sport default
         is_running = false;
         current_seconds = current_sport.play_clock_seconds;
-        null_sent = false; // Reset null flag on timer reset
+        null_sent = false;  // Reset null flag
+
+        ESP_LOGI(TAG, "Rotary button: QUICK RESET → %d sec",
+                 current_seconds);
     }
-    last_rotary_button = current_rotary_button;
 
     // Update time if running
     static uint32_t zero_reached_timestamp = 0;
