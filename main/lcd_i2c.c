@@ -83,8 +83,23 @@ bool lcd_i2c_begin(LcdI2C* lcd, uint8_t addr, gpio_num_t sda_pin, gpio_num_t scl
     lcd_i2c_write_byte(lcd, LCD_ENTRY_MODE_SET | lcd->display_mode);
     vTaskDelay(pdMS_TO_TICKS(1));
     
+    // Test different backlight configurations for PCF8574T
+    ESP_LOGI(TAG, "Testing PCF8574T backlight configurations...");
+    
+    // Try backlight on (bit 3 set)
+    lcd->backlight_state = 0x08;
+    lcd_i2c_write_byte(lcd, 0x00); // Send backlight command only
+    
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    
+    // Test display with visible characters
+    lcd_i2c_set_cursor(lcd, 0, 0);
+    lcd_i2c_print(lcd, "TEST LINE 1");
+    lcd_i2c_set_cursor(lcd, 0, 1);
+    lcd_i2c_print(lcd, "TEST LINE 2");
+    
     lcd->initialized = true;
-    ESP_LOGI(TAG, "I2C LCD initialized successfully");
+    ESP_LOGI(TAG, "I2C LCD initialized successfully - test text displayed");
     
     return true;
 }
@@ -168,4 +183,28 @@ void lcd_i2c_printf(LcdI2C* lcd, const char* format, ...) {
     va_end(args);
     
     lcd_i2c_print(lcd, buffer);
+}
+
+void lcd_i2c_test_backlight(LcdI2C* lcd) {
+    if (!lcd) return;
+    
+    ESP_LOGI(TAG, "Testing backlight patterns...");
+    
+    // Try different backlight configurations
+    uint8_t backlight_patterns[] = {0x08, 0x00, 0x01, 0x02, 0x04, 0x07};
+    
+    for (int i = 0; i < 6; i++) {
+        lcd->backlight_state = backlight_patterns[i];
+        ESP_LOGI(TAG, "Testing backlight pattern 0x%02X", backlight_patterns[i]);
+        
+        // Send backlight command
+        uint8_t backlight_cmd = backlight_patterns[i];
+        i2c_master_transmit(lcd->i2c_dev, &backlight_cmd, 1, -1);
+        
+        vTaskDelay(pdMS_TO_TICKS(2000)); // Wait 2 seconds to see effect
+    }
+    
+    // Restore default backlight
+    lcd->backlight_state = LCD_BACKLIGHT_MASK;
+    ESP_LOGI(TAG, "Backlight test completed");
 }

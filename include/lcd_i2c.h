@@ -12,7 +12,7 @@
 #define LCD_RS_MASK          0x01
 #define LCD_RW_MASK          0x02
 #define LCD_EN_MASK          0x04
-#define LCD_BACKLIGHT_MASK   0x08
+#define LCD_BACKLIGHT_MASK   0x08  // PCF8574T bit 3 for backlight
 #define LCD_D4_MASK          0x10
 #define LCD_D5_MASK          0x20
 #define LCD_D6_MASK          0x40
@@ -71,3 +71,6 @@ void lcd_i2c_printf(LcdI2C* lcd, const char* format, ...);
 
 // I2C debugging function
 void i2c_scan(gpio_num_t sda_pin, gpio_num_t scl_pin);
+
+// LCD testing function
+void lcd_i2c_test_backlight(LcdI2C* lcd);

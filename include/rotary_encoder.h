@@ -30,6 +30,8 @@ typedef struct {
     bool last_button_state;
     uint32_t button_press_time;
     bool last_button_press_state;
+    uint32_t last_clk_read_time;
+    uint32_t last_button_read_time;
 } RotaryEncoder;
 
 // Function declarations

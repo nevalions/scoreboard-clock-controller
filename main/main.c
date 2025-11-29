@@ -2,12 +2,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "../include/button_driver.h"
-#include "../include/radio_comm.h"
 #include "../include/lcd_i2c.h"
+#include "../include/radio_comm.h"
 #include "../include/rotary_encoder.h"
 #include "../../radio-common/include/radio_config.h"
-#include "../../sport_selector/include/sport_selector.h"
 #include "../../sport_selector/include/colors.h"
+#include "../../sport_selector/include/sport_selector.h"
 
 static const char *TAG = "CONTROLLER";
 
@@ -53,57 +53,88 @@ static inline bool time_elapsed(uint32_t start, uint32_t interval) {
     return (get_current_time_ms() - start) >= interval;
 }
 
+// Update LCD display with current sport and time
+static void update_lcd_display(void) {
+    lcd_i2c_clear(&lcd);
+    lcd_i2c_set_cursor(&lcd, 0, 0);
+    lcd_i2c_printf(&lcd, "%s %s", current_sport.name, current_sport.variation);
+    lcd_i2c_set_cursor(&lcd, 0, 1);
+    lcd_i2c_printf(&lcd, "Time: %03d", current_seconds);
+}
+
 static sport_type_t get_next_sport(sport_type_t current) {
-    switch (current) {
-        case SPORT_BASKETBALL_24_SEC: return SPORT_BASKETBALL_30_SEC;
-        case SPORT_BASKETBALL_30_SEC: return SPORT_FOOTBALL_40_SEC;
-        case SPORT_FOOTBALL_40_SEC: return SPORT_FOOTBALL_25_SEC;
-        case SPORT_FOOTBALL_25_SEC: return SPORT_BASEBALL_15_SEC;
-        case SPORT_BASEBALL_15_SEC: return SPORT_BASEBALL_20_SEC;
-        case SPORT_BASEBALL_20_SEC: return SPORT_BASEBALL_14_SEC;
-        case SPORT_BASEBALL_14_SEC: return SPORT_BASEBALL_19_SEC;
-        case SPORT_BASEBALL_19_SEC: return SPORT_VOLLEYBALL_8_SEC;
-        case SPORT_VOLLEYBALL_8_SEC: return SPORT_LACROSSE_30_SEC;
-        case SPORT_LACROSSE_30_SEC: return SPORT_BASKETBALL_24_SEC;
-        default: return SPORT_BASKETBALL_24_SEC;
-    }
+  switch (current) {
+  case SPORT_BASKETBALL_24_SEC:
+    return SPORT_BASKETBALL_30_SEC;
+  case SPORT_BASKETBALL_30_SEC:
+    return SPORT_FOOTBALL_40_SEC;
+  case SPORT_FOOTBALL_40_SEC:
+    return SPORT_FOOTBALL_25_SEC;
+  case SPORT_FOOTBALL_25_SEC:
+    return SPORT_BASEBALL_15_SEC;
+  case SPORT_BASEBALL_15_SEC:
+    return SPORT_BASEBALL_20_SEC;
+  case SPORT_BASEBALL_20_SEC:
+    return SPORT_BASEBALL_14_SEC;
+  case SPORT_BASEBALL_14_SEC:
+    return SPORT_BASEBALL_19_SEC;
+  case SPORT_BASEBALL_19_SEC:
+    return SPORT_VOLLEYBALL_8_SEC;
+  case SPORT_VOLLEYBALL_8_SEC:
+    return SPORT_LACROSSE_30_SEC;
+  case SPORT_LACROSSE_30_SEC:
+    return SPORT_BASKETBALL_24_SEC;
+  default:
+    return SPORT_BASKETBALL_24_SEC;
+  }
 }
 
 static sport_type_t get_prev_sport(sport_type_t current) {
-    switch (current) {
-        case SPORT_BASKETBALL_24_SEC: return SPORT_LACROSSE_30_SEC;
-        case SPORT_BASKETBALL_30_SEC: return SPORT_BASKETBALL_24_SEC;
-        case SPORT_FOOTBALL_40_SEC: return SPORT_BASKETBALL_30_SEC;
-        case SPORT_FOOTBALL_25_SEC: return SPORT_FOOTBALL_40_SEC;
-        case SPORT_BASEBALL_15_SEC: return SPORT_FOOTBALL_25_SEC;
-        case SPORT_BASEBALL_20_SEC: return SPORT_BASEBALL_15_SEC;
-        case SPORT_BASEBALL_14_SEC: return SPORT_BASEBALL_20_SEC;
-        case SPORT_BASEBALL_19_SEC: return SPORT_BASEBALL_14_SEC;
-        case SPORT_VOLLEYBALL_8_SEC: return SPORT_BASEBALL_19_SEC;
-        case SPORT_LACROSSE_30_SEC: return SPORT_VOLLEYBALL_8_SEC;
-        default: return SPORT_BASKETBALL_24_SEC;
-    }
+  switch (current) {
+  case SPORT_BASKETBALL_24_SEC:
+    return SPORT_LACROSSE_30_SEC;
+  case SPORT_BASKETBALL_30_SEC:
+    return SPORT_BASKETBALL_24_SEC;
+  case SPORT_FOOTBALL_40_SEC:
+    return SPORT_BASKETBALL_30_SEC;
+  case SPORT_FOOTBALL_25_SEC:
+    return SPORT_FOOTBALL_40_SEC;
+  case SPORT_BASEBALL_15_SEC:
+    return SPORT_FOOTBALL_25_SEC;
+  case SPORT_BASEBALL_20_SEC:
+    return SPORT_BASEBALL_15_SEC;
+  case SPORT_BASEBALL_14_SEC:
+    return SPORT_BASEBALL_20_SEC;
+  case SPORT_BASEBALL_19_SEC:
+    return SPORT_BASEBALL_14_SEC;
+  case SPORT_VOLLEYBALL_8_SEC:
+    return SPORT_BASEBALL_19_SEC;
+  case SPORT_LACROSSE_30_SEC:
+    return SPORT_VOLLEYBALL_8_SEC;
+  default:
+    return SPORT_BASKETBALL_24_SEC;
+  }
 }
 
 // Function to set sport by type
 void set_sport(sport_type_t sport_type) {
-    current_sport = get_sport_config(sport_type);
-    current_seconds = current_sport.play_clock_seconds;
-    is_running = false; // Stop timer when changing sport
-    
-    // Reset null tracking when sport changes
-    null_sent = false;
-    
-    ESP_LOGI(TAG, "Sport set to: %s %s (%d seconds)", 
-             current_sport.name, current_sport.variation, current_sport.play_clock_seconds);
+  current_sport = get_sport_config(sport_type);
+  current_seconds = current_sport.play_clock_seconds;
+  is_running = false; // Stop timer when changing sport
+
+  // Reset null tracking when sport changes
+  null_sent = false;
+
+  ESP_LOGI(TAG, "Sport set to: %s %s (%d seconds)", current_sport.name,
+           current_sport.variation, current_sport.play_clock_seconds);
 }
 
 // Available sport types for selection:
 // SPORT_BASKETBALL_24_SEC, SPORT_BASKETBALL_30_SEC
-// SPORT_FOOTBALL_40_SEC, SPORT_FOOTBALL_25_SEC  
-// SPORT_BASEBALL_15_SEC, SPORT_BASEBALL_20_SEC, SPORT_BASEBALL_14_SEC, SPORT_BASEBALL_19_SEC
-// SPORT_VOLLEYBALL_8_SEC, SPORT_LACROSSE_30_SEC
-// Custom sports: use get_custom_config(seconds, behavior)
+// SPORT_FOOTBALL_40_SEC, SPORT_FOOTBALL_25_SEC
+// SPORT_BASEBALL_15_SEC, SPORT_BASEBALL_20_SEC, SPORT_BASEBALL_14_SEC,
+// SPORT_BASEBALL_19_SEC SPORT_VOLLEYBALL_8_SEC, SPORT_LACROSSE_30_SEC Custom
+// sports: use get_custom_config(seconds, behavior)
 
 void app_main(void) {
   ESP_LOGI(TAG, "Starting Controller Application");
@@ -111,14 +142,15 @@ void app_main(void) {
   // Initialize sport configuration (default to basketball 24 sec)
   current_sport = get_sport_config(SPORT_BASKETBALL_24_SEC);
   current_seconds = current_sport.play_clock_seconds;
-  ESP_LOGI(TAG, "Sport initialized: %s %s (%d seconds)", 
-           current_sport.name, current_sport.variation, current_sport.play_clock_seconds);
+  ESP_LOGI(TAG, "Sport initialized: %s %s (%d seconds)", current_sport.name,
+           current_sport.variation, current_sport.play_clock_seconds);
 
   // Initialize button
   button_begin(&control_button, CONTROL_BUTTON_PIN);
 
   // Initialize rotary encoder
-  rotary_encoder_begin(&rotary_encoder, ROTARY_CLK_PIN, ROTARY_DT_PIN, ROTARY_SW_PIN);
+  rotary_encoder_begin(&rotary_encoder, ROTARY_CLK_PIN, ROTARY_DT_PIN,
+                       ROTARY_SW_PIN);
 
   // Initialize I2C LCD
   ESP_LOGI(TAG, "Initializing LCD at address 0x%02X", LCD_I2C_ADDR);
@@ -141,11 +173,7 @@ void app_main(void) {
   ESP_LOGI(TAG, "Controller initialized successfully");
 
   // Initialize I2C LCD display
-  lcd_i2c_clear(&lcd);
-  lcd_i2c_set_cursor(&lcd, 0, 0);
-  lcd_i2c_printf(&lcd, "%s %s", current_sport.name, current_sport.variation);
-  lcd_i2c_set_cursor(&lcd, 0, 1);
-  lcd_i2c_printf(&lcd, "Time: %03d", current_seconds);
+  update_lcd_display();
 
   // Static variables for button state tracking
   static uint32_t timer_last_update = 0;
@@ -169,9 +197,12 @@ void app_main(void) {
 
     // Log raw GPIO levels for debugging
     if (time_elapsed(debug_last_gpio_output, GPIO_DEBUG_INTERVAL_MS)) {
-      ESP_LOGI(TAG, "GPIO level - Control: %d | Button state - Control: %d",
+      int sw_raw = gpio_get_level(ROTARY_SW_PIN);
+      ESP_LOGI(TAG, "GPIO level - Control: %d | Button state - Control: %d | SW raw: %d",
                gpio_get_level(CONTROL_BUTTON_PIN),
-               button_is_pressed(&control_button));
+               button_is_pressed(&control_button),
+               sw_raw);
+      ESP_LOGI("SWTEST", "SW raw level: %d", sw_raw);
       debug_last_gpio_output = current_time;
     }
 
@@ -182,7 +213,8 @@ void app_main(void) {
       last_control_button_state = control_button.state;
     }
 
-    // Handle control button - single button for start/stop/reset with double tap detection
+    // Handle control button - single button for start/stop/reset with double
+    // tap detection
     static bool was_pressed = false;
     static uint32_t last_press_time = 0;
     static uint32_t press_count = 0;
@@ -193,7 +225,7 @@ void app_main(void) {
       control_button_active = true;
       control_button_press_start = current_time;
       ESP_LOGI(TAG, "CONTROL button pressed");
-      
+
       // Handle double tap detection
       press_count++;
       if (press_count == 1) {
@@ -204,9 +236,11 @@ void app_main(void) {
           // Double tap detected - change sport
           static sport_type_t current_sport_type = SPORT_BASKETBALL_24_SEC;
           current_sport_type = get_next_sport(current_sport_type);
-          set_sport(current_sport_type);
-          ESP_LOGW(TAG, "Double tap detected - changed sport to: %s %s", 
-                   current_sport.name, current_sport.variation);
+            set_sport(current_sport_type);
+            update_lcd_display();
+
+            ESP_LOGI(TAG, "Sport changed to: %s %s",
+                     current_sport.name, current_sport.variation);
           press_count = 0; // Reset counter
         } else {
           // Too much time between presses, reset and count as first press
@@ -218,8 +252,10 @@ void app_main(void) {
     }
 
     // Reset double tap counter if window expires
-    if (press_count > 0 && (current_time - last_press_time) > BUTTON_DOUBLE_TAP_WINDOW_MS) {
-      ESP_LOGI(TAG, "Double tap window expired, resetting count from %d", press_count);
+    if (press_count > 0 &&
+        (current_time - last_press_time) > BUTTON_DOUBLE_TAP_WINDOW_MS) {
+      ESP_LOGI(TAG, "Double tap window expired, resetting count from %d",
+               press_count);
       press_count = 0;
     }
 
@@ -229,9 +265,10 @@ void app_main(void) {
       ESP_LOGI(TAG, "CONTROL button held - resetting timer to sport default");
       is_running = false;
       current_seconds = current_sport.play_clock_seconds;
-      null_sent = false; // Reset null flag on timer reset
+      update_lcd_display();
+      null_sent = false;             // Reset null flag on timer reset
       control_button_active = false; // Prevent repeat
-      press_count = 0; // Reset double tap counter on hold
+      press_count = 0;               // Reset double tap counter on hold
     }
 
     // Check for release (short press) - toggle start/stop
@@ -247,68 +284,82 @@ void app_main(void) {
     was_pressed = now_pressed;
 
     //---------------------------------------------------------
-    // ROTARY HANDLING (single action per detent)
+    // ROTARY ENCODER SELECTION SYSTEM
     //---------------------------------------------------------
 
+    static sport_type_t selected_sport_type = SPORT_BASKETBALL_24_SEC;
     static RotaryDirection last_action_dir = ROTARY_NONE;
     RotaryDirection dir = rotary_encoder_get_direction(&rotary_encoder);
 
-    // 1. Only process the FIRST event of the detent
-    if (dir != ROTARY_NONE && last_action_dir == ROTARY_NONE)
-    {
-        static sport_type_t current_sport_type = SPORT_BASKETBALL_24_SEC;
+    // 1. Handle rotation - only SELECT sport, don't change it
+    if (dir != ROTARY_NONE && last_action_dir == ROTARY_NONE) {
+      if (rotary_encoder_is_button_pressed(&rotary_encoder)) {
+        // Button held while rotating → adjust time
+        if (dir == ROTARY_CW && current_seconds < 999)
+          current_seconds++;
+        else if (dir == ROTARY_CCW && current_seconds > 0)
+          current_seconds--;
 
-        if (rotary_encoder_is_button_pressed(&rotary_encoder))
-        {
-            // Adjust time when button held
-            if (dir == ROTARY_CW && current_seconds < 999)
-                current_seconds++;
-            else if (dir == ROTARY_CCW && current_seconds > 0)
-                current_seconds--;
-
-            ESP_LOGI(TAG, "Time adjusted by rotary: %d", current_seconds);
-        }
+        update_lcd_display();
+        ESP_LOGI(TAG, "Time adjusted by rotary: %d", current_seconds);
+      } else {
+        // Rotation without button → navigate through sports (selection only)
+        if (dir == ROTARY_CW)
+          selected_sport_type = get_next_sport(selected_sport_type);
         else
-        {
-            // Change sport on rotation without button
-            if (dir == ROTARY_CW)
-                current_sport_type = get_next_sport(current_sport_type);
-            else
-                current_sport_type = get_prev_sport(current_sport_type);
+          selected_sport_type = get_prev_sport(selected_sport_type);
 
-            set_sport(current_sport_type);
+        // Show selection on LCD (but don't change actual sport)
+        sport_config_t selected_sport = get_sport_config(selected_sport_type);
+        lcd_i2c_clear(&lcd);
+        lcd_i2c_set_cursor(&lcd, 0, 0);
+        lcd_i2c_printf(&lcd, ">%s %s", selected_sport.name, selected_sport.variation);
+        lcd_i2c_set_cursor(&lcd, 0, 1);
+        lcd_i2c_printf(&lcd, "Time: %03d", current_seconds);
 
-            ESP_LOGI(TAG, "Sport changed to: %s %s",
-                     current_sport.name, current_sport.variation);
-        }
+        ESP_LOGI(TAG, "Sport SELECTED: %s %s (press to confirm)",
+                 selected_sport.name, selected_sport.variation);
+      }
 
-        // Mark that we've taken action for this detent
-        last_action_dir = dir;
+      // Mark that we've taken action for this detent
+      last_action_dir = dir;
     }
 
     // 2. Reset the state ONLY when encoder direction returns to NONE
-    if (dir == ROTARY_NONE)
-    {
-        last_action_dir = ROTARY_NONE;
+    if (dir == ROTARY_NONE) {
+      last_action_dir = ROTARY_NONE;
     }
 
-    // --- 2: handle rotary button Press (edge detection) ---
-    if (rotary_encoder_get_button_press(&rotary_encoder))
-    {
-        // Quick reset to sport default
+    // 3. Handle rotary button press - CONFIRM selected sport or QUICK RESET
+    if (rotary_encoder_get_button_press(&rotary_encoder)) {
+      // Check if selected sport is different from current sport
+      sport_config_t selected_sport = get_sport_config(selected_sport_type);
+      if (selected_sport.play_clock_seconds != current_sport.play_clock_seconds ||
+          strcmp(selected_sport.name, current_sport.name) != 0) {
+        // Different sport selected - confirm and change
+        set_sport(selected_sport_type);
+        ESP_LOGI(TAG, "Rotary button: SPORT CONFIRMED → %s %s",
+                 current_sport.name, current_sport.variation);
+      } else {
+        // Same sport selected - quick reset to sport default
         is_running = false;
         current_seconds = current_sport.play_clock_seconds;
         null_sent = false;  // Reset null flag
 
         ESP_LOGI(TAG, "Rotary button: QUICK RESET → %d sec",
                  current_seconds);
+      }
+      
+      update_lcd_display();
     }
 
     // Update time if running
     static uint32_t zero_reached_timestamp = 0;
-    if (is_running && time_elapsed(timer_last_update, TIMER_UPDATE_INTERVAL_MS)) {
+    if (is_running &&
+        time_elapsed(timer_last_update, TIMER_UPDATE_INTERVAL_MS)) {
       if (current_seconds > 0) {
         current_seconds--;
+        update_lcd_display();
         timer_last_update = current_time;
         ESP_LOGI(TAG, "Timer counting down: %d seconds", current_seconds);
       } else {
@@ -321,10 +372,13 @@ void app_main(void) {
     }
 
     // After 3 seconds at zero, send null to clear display
-    if (!is_running && current_seconds == 0 && zero_reached_timestamp > 0 && 
-        time_elapsed(zero_reached_timestamp, ZERO_CLEAR_DELAY_MS) && !null_sent) {
+    if (!is_running && current_seconds == 0 && zero_reached_timestamp > 0 &&
+        time_elapsed(zero_reached_timestamp, ZERO_CLEAR_DELAY_MS) &&
+        !null_sent) {
       // Send null with deep red color
-      radio_send_time(&radio, 0xFF, 255, 0, 0, sequence++); // Send 0xFF as null indicator with deep red color
+      radio_send_time(
+          &radio, 0xFF, 255, 0, 0,
+          sequence++);  // Send 0xFF as null indicator with deep red color
       null_sent = true; // Mark that null has been sent
       ESP_LOGI(TAG, "Sent null signal to clear display");
     }
@@ -340,16 +394,16 @@ void app_main(void) {
     // Send time update every 250ms to keep time actual
     if (time_elapsed(radio_last_transmit, RADIO_TRANSMIT_INTERVAL_MS)) {
       uint8_t time_to_send = current_seconds;
-      
+
       // If we've sent null and are still at zero, keep sending null
       if (null_sent && !is_running && current_seconds == 0) {
         time_to_send = 0xFF; // Send null indicator
       }
-      
+
       // Get color based on sport configuration and current time
       color_t color = get_sport_color(current_sport.color_scheme, time_to_send);
       uint8_t r = color.r, g = color.g, b = color.b;
-      
+
       radio_send_time(&radio, time_to_send, r, g, b, sequence++);
       radio_last_transmit = current_time;
     }
