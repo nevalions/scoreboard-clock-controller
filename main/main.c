@@ -121,6 +121,7 @@ void app_main(void) {
   rotary_encoder_begin(&rotary_encoder, ROTARY_CLK_PIN, ROTARY_DT_PIN, ROTARY_SW_PIN);
 
   // Initialize I2C LCD
+  ESP_LOGI(TAG, "Initializing LCD at address 0x%02X", LCD_I2C_ADDR);
   if (!lcd_i2c_begin(&lcd, LCD_I2C_ADDR, LCD_I2C_SDA_PIN, LCD_I2C_SCL_PIN)) {
     ESP_LOGE(TAG, "Failed to initialize I2C LCD");
     return;

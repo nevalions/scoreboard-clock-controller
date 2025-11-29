@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "driver/i2c_master.h"
 
-#define LCD_I2C_ADDR         0x27
+#define LCD_I2C_ADDR         0x20
 
 #define LCD_I2C_SDA_PIN      GPIO_NUM_21
 #define LCD_I2C_SCL_PIN      GPIO_NUM_22
@@ -68,3 +68,6 @@ void lcd_i2c_set_cursor(LcdI2C* lcd, uint8_t col, uint8_t row);
 void lcd_i2c_write(LcdI2C* lcd, uint8_t value);
 void lcd_i2c_print(LcdI2C* lcd, const char* str);
 void lcd_i2c_printf(LcdI2C* lcd, const char* format, ...);
+
+// I2C debugging function
+void i2c_scan(gpio_num_t sda_pin, gpio_num_t scl_pin);

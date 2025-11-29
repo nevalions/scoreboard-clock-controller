@@ -38,8 +38,10 @@ bool lcd_i2c_begin(LcdI2C* lcd, uint8_t addr, gpio_num_t sda_pin, gpio_num_t scl
     esp_err_t ret = i2c_new_master_bus(&i2c_mst_config, &bus_handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "I2C new master bus failed: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Check SDA pin %d and SCL pin %d connections", sda_pin, scl_pin);
         return false;
     }
+    ESP_LOGI(TAG, "I2C master bus created successfully");
     
     i2c_device_config_t dev_cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
@@ -51,8 +53,11 @@ bool lcd_i2c_begin(LcdI2C* lcd, uint8_t addr, gpio_num_t sda_pin, gpio_num_t scl
     ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "I2C bus add device failed: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Check if LCD is connected at address 0x%02X", addr);
+        i2c_del_master_bus(bus_handle);
         return false;
     }
+    ESP_LOGI(TAG, "I2C device added successfully at address 0x%02X", addr);
     
     lcd->i2c_dev = dev_handle;
     
@@ -88,6 +93,9 @@ static esp_err_t lcd_i2c_write_byte(LcdI2C* lcd, uint8_t data) {
     uint8_t write_buf = data | lcd->backlight_state;
     
     esp_err_t ret = i2c_master_transmit(lcd->i2c_dev, &write_buf, 1, -1);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "I2C transmit failed: %s, data: 0x%02X", esp_err_to_name(ret), write_buf);
+    }
     
     return ret;
 }
