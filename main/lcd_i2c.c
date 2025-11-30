@@ -1,9 +1,13 @@
-#include "lcd_i2c.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <stdarg.h>
-#include <stdio.h>
+#include "driver/i2c_master.h"
+#include "lcd_i2c.h"
 
 static const char *TAG = "LCD_I2C";
 
@@ -62,30 +66,30 @@ bool lcd_i2c_begin(LcdI2C* lcd, uint8_t addr, gpio_num_t sda_pin, gpio_num_t scl
     
     lcd->i2c_dev = dev_handle;
     
-    vTaskDelay(pdMS_TO_TICKS(50)); // Wait after power-up
+    vTaskDelay(pdMS_TO_TICKS(LCD_POWER_UP_DELAY_MS));
     
     // 4-bit initialization sequence for PCF8574 LCD modules
     ESP_LOGI(TAG, "Starting 4-bit LCD initialization");
     lcd_i2c_write_nibble(lcd, 0x03, false);
-    vTaskDelay(pdMS_TO_TICKS(5));
+    vTaskDelay(pdMS_TO_TICKS(LCD_INIT_DELAY_MS));
     lcd_i2c_write_nibble(lcd, 0x03, false);
-    vTaskDelay(pdMS_TO_TICKS(5));
+    vTaskDelay(pdMS_TO_TICKS(LCD_INIT_DELAY_MS));
     lcd_i2c_write_nibble(lcd, 0x03, false);
-    vTaskDelay(pdMS_TO_TICKS(5));
+    vTaskDelay(pdMS_TO_TICKS(LCD_INIT_DELAY_MS));
     lcd_i2c_write_nibble(lcd, 0x02, false); // Switch to 4-bit mode
-    vTaskDelay(pdMS_TO_TICKS(5));
+    vTaskDelay(pdMS_TO_TICKS(LCD_INIT_DELAY_MS));
     
     // Function set: 4-bit, 2-line, 5x8 dots
     uint8_t func_cmd = LCD_FUNCTION_SET | lcd->display_function;
     ESP_LOGI(TAG, "Sending function set command: 0x%02X", func_cmd);
     lcd_i2c_write_byte(lcd, func_cmd);
-    vTaskDelay(pdMS_TO_TICKS(5));
+    vTaskDelay(pdMS_TO_TICKS(LCD_INIT_DELAY_MS));
     
     // Display control: display on, cursor off, blink off
     uint8_t disp_cmd = LCD_DISPLAY_CONTROL | lcd->display_control;
     ESP_LOGI(TAG, "Sending display control command: 0x%02X", disp_cmd);
     lcd_i2c_write_byte(lcd, disp_cmd);
-    vTaskDelay(pdMS_TO_TICKS(5));
+    vTaskDelay(pdMS_TO_TICKS(LCD_INIT_DELAY_MS));
     
     // Clear display
     ESP_LOGI(TAG, "Clearing display");
@@ -95,18 +99,18 @@ bool lcd_i2c_begin(LcdI2C* lcd, uint8_t addr, gpio_num_t sda_pin, gpio_num_t scl
     uint8_t entry_cmd = LCD_ENTRY_MODE_SET | lcd->display_mode;
     ESP_LOGI(TAG, "Sending entry mode command: 0x%02X", entry_cmd);
     lcd_i2c_write_byte(lcd, entry_cmd);
-    vTaskDelay(pdMS_TO_TICKS(5));
+    vTaskDelay(pdMS_TO_TICKS(LCD_INIT_DELAY_MS));
     
     // Test display with visible characters
     ESP_LOGI(TAG, "Testing display with 'TEST LINE 1'");
     lcd_i2c_set_cursor(lcd, 0, 0);
     lcd_i2c_print(lcd, "TEST LINE 1");
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(LCD_TEST_DELAY_MS));
     
     ESP_LOGI(TAG, "Testing second line with 'TEST LINE 2'");
     lcd_i2c_set_cursor(lcd, 0, 1);
     lcd_i2c_print(lcd, "TEST LINE 2");
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(LCD_TEST_DELAY_MS));
     
     lcd->initialized = true;
     ESP_LOGI(TAG, "I2C LCD initialized successfully - test text displayed");
@@ -124,11 +128,11 @@ static esp_err_t lcd_i2c_write_byte(LcdI2C* lcd, uint8_t data) {
     esp_err_t ret = ESP_OK;
     ret = lcd_i2c_write_nibble(lcd, data >> 4, false);  // High nibble
     if (ret != ESP_OK) return ret;
-    vTaskDelay(pdMS_TO_TICKS(1));
+    vTaskDelay(pdMS_TO_TICKS(LCD_NIBBLE_DELAY_MS));
     
     ret = lcd_i2c_write_nibble(lcd, data & 0x0F, false); // Low nibble
     if (ret != ESP_OK) return ret;
-    vTaskDelay(pdMS_TO_TICKS(1));
+    vTaskDelay(pdMS_TO_TICKS(LCD_NIBBLE_DELAY_MS));
     
     return ESP_OK;
 }
@@ -153,7 +157,7 @@ static esp_err_t lcd_i2c_write_nibble(LcdI2C* lcd, uint8_t nibble, bool is_data)
     ESP_LOGD(TAG, "Writing nibble: 0x%01X -> 0x%02X (data=%d)", nibble, data, is_data);
     
     esp_err_t ret = lcd_i2c_pulse_enable(lcd, data);
-    vTaskDelay(pdMS_TO_TICKS(1));
+    vTaskDelay(pdMS_TO_TICKS(LCD_NIBBLE_DELAY_MS));
     
     return ret;
 }
@@ -197,19 +201,19 @@ static void lcd_i2c_write_8bit(LcdI2C* lcd, uint8_t data, bool is_data) {
 }
 
 void lcd_i2c_clear(LcdI2C* lcd) {
-    if (!lcd->initialized) return;
+    if (!lcd || !lcd->initialized) return;
     lcd_i2c_write_byte(lcd, LCD_CLEAR_DISPLAY);
-    vTaskDelay(pdMS_TO_TICKS(2));
+    vTaskDelay(pdMS_TO_TICKS(LCD_COMMAND_DELAY_MS));
 }
 
 void lcd_i2c_home(LcdI2C* lcd) {
-    if (!lcd->initialized) return;
+    if (!lcd || !lcd->initialized) return;
     lcd_i2c_write_byte(lcd, LCD_RETURN_HOME);
-    vTaskDelay(pdMS_TO_TICKS(2));
+    vTaskDelay(pdMS_TO_TICKS(LCD_COMMAND_DELAY_MS));
 }
 
 void lcd_i2c_set_cursor(LcdI2C* lcd, uint8_t col, uint8_t row) {
-    if (!lcd->initialized) return;
+    if (!lcd || !lcd->initialized) return;
     
     uint8_t row_offsets[] = {0x00, 0x40, 0x14, 0x54};
     if (row >= 2) row = 1;
@@ -219,24 +223,24 @@ void lcd_i2c_set_cursor(LcdI2C* lcd, uint8_t col, uint8_t row) {
 }
 
 void lcd_i2c_write(LcdI2C* lcd, uint8_t value) {
-    if (!lcd->initialized) return;
+    if (!lcd || !lcd->initialized) return;
     
     // Always use 4-bit mode for PCF8574
     lcd_i2c_write_nibble(lcd, value >> 4, true);  // High nibble
-    vTaskDelay(pdMS_TO_TICKS(1));
+    vTaskDelay(pdMS_TO_TICKS(LCD_NIBBLE_DELAY_MS));
     lcd_i2c_write_nibble(lcd, value & 0x0F, true); // Low nibble
-    vTaskDelay(pdMS_TO_TICKS(1));
+    vTaskDelay(pdMS_TO_TICKS(LCD_NIBBLE_DELAY_MS));
 }
 
 void lcd_i2c_print(LcdI2C* lcd, const char* str) {
-    if (!lcd->initialized) return;
+    if (!lcd || !lcd->initialized) return;
     while (*str) {
         lcd_i2c_write(lcd, *str++);
     }
 }
 
 void lcd_i2c_printf(LcdI2C* lcd, const char* format, ...) {
-    if (!lcd->initialized) return;
+    if (!lcd || !lcd->initialized) return;
     
     char buffer[64];
     va_list args;
@@ -263,7 +267,7 @@ void lcd_i2c_test_backlight(LcdI2C* lcd) {
         uint8_t backlight_cmd = backlight_patterns[i];
         i2c_master_transmit(lcd->i2c_dev, &backlight_cmd, 1, -1);
         
-        vTaskDelay(pdMS_TO_TICKS(2000)); // Wait 2 seconds to see effect
+        vTaskDelay(pdMS_TO_TICKS(LCD_BACKLIGHT_TEST_MS));
     }
     
     // Restore default backlight
@@ -285,12 +289,12 @@ void lcd_debug_pin_scan(LcdI2C* lcd) {
         uint8_t val = (1 << i);
         ESP_LOGI(TAG, "SCAN: Setting bit %d = HIGH (0x%02X)", i, val);
         i2c_master_transmit(lcd->i2c_dev, &val, 1, 1000);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(LCD_BACKLIGHT_TEST_MS));
 
         val = 0;
         ESP_LOGI(TAG, "SCAN: Setting bit %d = LOW (0x00)", i);
         i2c_master_transmit(lcd->i2c_dev, &val, 1, 1000);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(LCD_BACKLIGHT_TEST_MS));
     }
     
     ESP_LOGI(TAG, "Pin scan completed - report what you observed on LCD");
@@ -308,12 +312,12 @@ void lcd_debug_all_pins_test(LcdI2C* lcd) {
     
     uint8_t val = 0xFF;   // all pins high
     i2c_master_transmit(lcd->i2c_dev, &val, 1, 1000);
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    vTaskDelay(pdMS_TO_TICKS(LCD_BACKLIGHT_TEST_MS));
 
     ESP_LOGI(TAG, "Setting all pins LOW (0x00) for 2 seconds");
     val = 0x00;   // all pins low
     i2c_master_transmit(lcd->i2c_dev, &val, 1, 1000);
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    vTaskDelay(pdMS_TO_TICKS(LCD_BACKLIGHT_TEST_MS));
     
     ESP_LOGI(TAG, "All pins test completed");
     ESP_LOGI(TAG, "If nothing changed except backlight → board is unusable");

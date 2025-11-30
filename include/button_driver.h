@@ -7,6 +7,9 @@
 // Button pins
 #define CONTROL_BUTTON_PIN   GPIO_NUM_0  // Single button for start/stop/reset
 
+// Button timing constants
+#define BUTTON_DEBOUNCE_MS   50  // Debounce delay in milliseconds
+
 // Button states
 typedef enum {
     BUTTON_RELEASED = 0,

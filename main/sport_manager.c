@@ -1,6 +1,8 @@
-#include "../include/sport_manager.h"
-#include "../../sport_selector/include/sport_selector.h"
+#include <stdint.h>
+#include <stdbool.h>
 #include "esp_log.h"
+#include "sport_manager.h"
+#include "../../sport_selector/include/sport_selector.h"
 
 static const char *TAG = "SPORT_MGR";
 

@@ -1,8 +1,10 @@
-#include "../include/ui_manager.h"
-#include "../include/lcd_i2c.h"
+#include <stdint.h>
+#include <stdbool.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "ui_manager.h"
+#include "lcd_i2c.h"
 
 static const char *TAG = "UI_MGR";
 

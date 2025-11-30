@@ -1,7 +1,10 @@
-#include "../include/rotary_encoder.h"
+#include <stdint.h>
+#include <stdbool.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "driver/gpio.h"
+#include "rotary_encoder.h"
 
 // === INIT ===
 bool rotary_encoder_begin(RotaryEncoder *enc, gpio_num_t clk_pin,
@@ -75,7 +78,7 @@ void rotary_encoder_update(RotaryEncoder *enc) {
   }
 
   // Clear direction after idle
-  if (now - enc->last_change_time > 80)
+  if (now - enc->last_change_time > ROTARY_IDLE_TIMEOUT_MS)
     enc->direction = ROTARY_NONE;
 
   // === BUTTON === (active low)
@@ -92,14 +95,17 @@ void rotary_encoder_update(RotaryEncoder *enc) {
 }
 
 RotaryDirection rotary_encoder_get_direction(RotaryEncoder *enc) {
+  if (!enc) return ROTARY_NONE;
   return enc->direction;
 }
 
 bool rotary_encoder_is_button_pressed(RotaryEncoder *enc) {
+  if (!enc) return false;
   return enc->button_pressed;
 }
 
 bool rotary_encoder_get_button_press(RotaryEncoder *enc) {
+  if (!enc) return false;
   bool pressed = enc->button_pressed && !enc->last_button_press_state;
   enc->last_button_press_state = enc->button_pressed;
   return pressed;

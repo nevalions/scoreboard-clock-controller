@@ -1,8 +1,10 @@
-#include "../include/button_driver.h"
+#include <stdint.h>
+#include <stdbool.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "button_driver.h"
 
 static const char *TAG = "BUTTON_DRIVER";
 
@@ -46,7 +48,7 @@ void button_update(Button* button) {
   
   // Handle debouncing
   if (button->state == BUTTON_DEBOUNCING) {
-    if (current_time - button->last_change_time > 50) { // 50ms debounce
+    if (current_time - button->last_change_time > BUTTON_DEBOUNCE_MS) {
       ButtonState new_state = current_level ? BUTTON_RELEASED : BUTTON_PRESSED;
       button->last_state = button->state;
       button->state = new_state;
@@ -60,11 +62,13 @@ bool button_is_pressed(Button* button) {
 }
 
 bool button_get_falling_edge(Button* button) {
+  if (!button) return false;
   bool falling_edge = (button->last_state == BUTTON_RELEASED) && (button->state == BUTTON_PRESSED);
   return falling_edge;
 }
 
 bool button_get_held(Button* button, uint32_t hold_time_ms) {
+  if (!button) return false;
   if (button->state == BUTTON_PRESSED) {
     uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
     return (current_time - button->last_change_time) >= hold_time_ms;

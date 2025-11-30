@@ -1,10 +1,12 @@
+#include <stdint.h>
+#include <stdbool.h>
+#include <string.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "../include/radio_comm.h"
-#include <string.h>
-#include "driver/spi_master.h"
 #include "driver/gpio.h"
+#include "driver/spi_master.h"
+#include "radio_comm.h"
 
 static const char *TAG = "RADIO_COMM";
 
@@ -12,6 +14,8 @@ bool radio_begin(RadioComm *radio, gpio_num_t ce, gpio_num_t csn) {
   ESP_LOGI(TAG, "Initializing nRF24L01+ transmitter");
 
   memset(radio, 0, sizeof(RadioComm));
+  radio->led_state = false;
+  radio->last_log_time = 0;
   
   // Initialize link status LED
   gpio_config_t led_conf = {
@@ -87,7 +91,7 @@ bool radio_send_time(RadioComm *radio, uint16_t seconds, uint8_t r, uint8_t g, u
   
    // Wait for transmission to complete (max 30ms to allow for retries)
    uint32_t start_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
-   while ((xTaskGetTickCount() * portTICK_PERIOD_MS) - start_time < 30) {
+   while ((xTaskGetTickCount() * portTICK_PERIOD_MS) - start_time < RADIO_TRANSMIT_TIMEOUT_MS) {
     uint8_t status = nrf24_get_status(&radio->base);
     if (status & NRF24_STATUS_TX_DS) {
       // Transmission successful
@@ -140,9 +144,9 @@ void radio_update_link_status(RadioComm* radio) {
 
   uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
   
-  // Check if we've had recent successful transmissions
-  bool recent_success = (current_time - radio->last_success_time) < 5000; // 5 seconds
-  bool recent_failure = (current_time - radio->last_failure_time) < 2000; // 2 seconds
+   // Check if we've had recent successful transmissions
+   bool recent_success = (current_time - radio->last_success_time) < RADIO_LINK_SUCCESS_WINDOW_MS;
+   bool recent_failure = (current_time - radio->last_failure_time) < RADIO_LINK_FAILURE_WINDOW_MS;
   
   // Determine link quality
   if (radio->success_count == 0) {
@@ -150,7 +154,7 @@ void radio_update_link_status(RadioComm* radio) {
   } else {
     uint16_t total_attempts = radio->success_count + radio->failure_count;
     float success_rate = (float)radio->success_count / total_attempts;
-    radio->link_good = success_rate > 0.5 && recent_success;
+    radio->link_good = success_rate > RADIO_LINK_SUCCESS_RATE_THRESHOLD && recent_success;
   }
 
   // Update LED based on link status
@@ -158,17 +162,15 @@ void radio_update_link_status(RadioComm* radio) {
     gpio_set_level(RADIO_STATUS_LED_PIN, 1); // LED on for good link
   } else if (recent_failure) {
     // Blink LED rapidly for recent failures
-    static bool blink_state = false;
-    blink_state = !blink_state;
-    gpio_set_level(RADIO_STATUS_LED_PIN, blink_state ? 1 : 0);
+    radio->led_state = !radio->led_state;
+    gpio_set_level(RADIO_STATUS_LED_PIN, radio->led_state ? 1 : 0);
   } else {
     gpio_set_level(RADIO_STATUS_LED_PIN, 0); // LED off for no link
   }
 
   // Log link status periodically
-  static uint32_t last_log_time = 0;
-  if (current_time - last_log_time > 10000) { // Log every 10 seconds
-    last_log_time = current_time;
+  if (current_time - radio->last_log_time > RADIO_LINK_LOG_INTERVAL_MS) {
+    radio->last_log_time = current_time;
     if (radio->success_count + radio->failure_count > 0) {
       float success_rate = (float)radio->success_count / (radio->success_count + radio->failure_count) * 100.0f;
       ESP_LOGI(TAG, "Link Status: %s | Success Rate: %.1f%% | Success: %d, Failures: %d", 
@@ -194,7 +196,7 @@ bool radio_check_link_quality(RadioComm* radio) {
   // Check success rate and recent activity
   uint16_t total_attempts = radio->success_count + radio->failure_count;
   float success_rate = (float)radio->success_count / total_attempts;
-  bool recent_success = (current_time - radio->last_success_time) < 5000; // 5 seconds
+  bool recent_success = (current_time - radio->last_success_time) < RADIO_LINK_SUCCESS_WINDOW_MS;
 
-  return success_rate > 0.7 && recent_success;
+  return success_rate > RADIO_LINK_QUALITY_THRESHOLD && recent_success;
 }

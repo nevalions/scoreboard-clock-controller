@@ -1,6 +1,8 @@
 #pragma once
 
-#include "../include/lcd_i2c.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include "lcd_i2c.h"
 #include "../../sport_selector/include/sport_selector.h"
 
 typedef struct {

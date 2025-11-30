@@ -1,9 +1,12 @@
-#include "../include/input_handler.h"
-#include "../include/sport_manager.h"
-#include "../include/timer_manager.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <string.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "input_handler.h"
+#include "sport_manager.h"
+#include "timer_manager.h"
 
 #define BUTTON_DOUBLE_TAP_WINDOW_MS 500
 #define BUTTON_HOLD_RESET_MS 2000
@@ -11,13 +14,7 @@
 
 static const char *TAG = "INPUT_HANDLER";
 
-static inline uint32_t get_current_time_ms(void) {
-    return xTaskGetTickCount() * portTICK_PERIOD_MS;
-}
 
-static inline bool time_elapsed(uint32_t start, uint32_t interval) {
-    return (get_current_time_ms() - start) >= interval;
-}
 
 void input_handler_init(InputHandler *handler, gpio_num_t control_pin, gpio_num_t clk_pin, gpio_num_t dt_pin, gpio_num_t sw_pin) {
     button_begin(&handler->control_button, control_pin);
@@ -36,7 +33,7 @@ InputAction input_handler_update(InputHandler *handler, SportManager *sport_mgr,
     button_update(&handler->control_button);
     rotary_encoder_update(&handler->rotary_encoder);
     
-    uint32_t current_time = get_current_time_ms();
+    uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
     InputAction action = INPUT_ACTION_NONE;
     
 
@@ -77,7 +74,7 @@ InputAction input_handler_update(InputHandler *handler, SportManager *sport_mgr,
     
     // Check for hold (2 seconds) - reset timer
     if (handler->control_button_active && now_pressed &&
-        time_elapsed(handler->control_button_press_start, BUTTON_HOLD_RESET_MS)) {
+        (current_time - handler->control_button_press_start) >= BUTTON_HOLD_RESET_MS) {
         sport_config_t current_sport = sport_manager_get_current_sport(sport_mgr);
         timer_manager_reset(timer_mgr, current_sport.play_clock_seconds);
         action = INPUT_ACTION_RESET;
@@ -87,7 +84,7 @@ InputAction input_handler_update(InputHandler *handler, SportManager *sport_mgr,
     
     // Check for release (short press) - toggle start/stop
     if (handler->control_button_active && !now_pressed) {
-        if (!time_elapsed(handler->control_button_press_start, BUTTON_HOLD_RESET_MS)) {
+        if ((current_time - handler->control_button_press_start) < BUTTON_HOLD_RESET_MS) {
             timer_manager_start_stop(timer_mgr);
             action = INPUT_ACTION_START_STOP;
         }
@@ -149,7 +146,8 @@ InputAction input_handler_update(InputHandler *handler, SportManager *sport_mgr,
 }
 
 void input_handler_debug_gpio(const InputHandler *handler) {
-    if (time_elapsed(handler->debug_last_gpio_output, GPIO_DEBUG_INTERVAL_MS)) {
+    uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    if ((current_time - handler->debug_last_gpio_output) >= GPIO_DEBUG_INTERVAL_MS) {
         int sw_raw = gpio_get_level(ROTARY_SW_PIN);
         ESP_LOGI(TAG, "GPIO level - Control: %d | Button state - Control: %d | SW raw: %d",
                  gpio_get_level(CONTROL_BUTTON_PIN),

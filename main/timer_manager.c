@@ -1,20 +1,16 @@
-#include "../include/timer_manager.h"
+#include <stdint.h>
+#include <stdbool.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "timer_manager.h"
 
 #define TIMER_UPDATE_INTERVAL_MS 1000
 #define ZERO_CLEAR_DELAY_MS 3000
 
 static const char *TAG = "TIMER_MGR";
 
-static inline uint32_t get_current_time_ms(void) {
-    return xTaskGetTickCount() * portTICK_PERIOD_MS;
-}
 
-static inline bool time_elapsed(uint32_t start, uint32_t interval) {
-    return (get_current_time_ms() - start) >= interval;
-}
 
 void timer_manager_init(TimerManager *manager, uint16_t initial_seconds) {
     manager->current_seconds = initial_seconds;
@@ -29,14 +25,15 @@ void timer_manager_update(TimerManager *manager) {
         return;
     }
 
-    if (time_elapsed(manager->timer_last_update, TIMER_UPDATE_INTERVAL_MS)) {
+    uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    if ((current_time - manager->timer_last_update) >= TIMER_UPDATE_INTERVAL_MS) {
         if (manager->current_seconds > 0) {
             manager->current_seconds--;
-            manager->timer_last_update = get_current_time_ms();
+            manager->timer_last_update = current_time;
             ESP_LOGI(TAG, "Timer counting down: %d seconds", manager->current_seconds);
         } else {
             manager->is_running = false;
-            manager->zero_reached_timestamp = get_current_time_ms();
+            manager->zero_reached_timestamp = current_time;
             manager->null_sent = false;
             ESP_LOGI(TAG, "Timer reached zero - stopped");
         }
@@ -66,10 +63,11 @@ void timer_manager_adjust_time(TimerManager *manager, int adjustment) {
 }
 
 bool timer_manager_should_send_null(const TimerManager *manager) {
+    uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
     return !manager->is_running && 
            manager->current_seconds == 0 && 
            manager->zero_reached_timestamp > 0 &&
-           time_elapsed(manager->zero_reached_timestamp, ZERO_CLEAR_DELAY_MS) &&
+           (current_time - manager->zero_reached_timestamp) >= ZERO_CLEAR_DELAY_MS &&
            !manager->null_sent;
 }
 

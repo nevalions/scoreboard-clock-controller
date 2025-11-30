@@ -9,6 +9,9 @@
 #define ROTARY_DT_PIN       GPIO_NUM_35  // Data pin (B)
 #define ROTARY_SW_PIN       GPIO_NUM_32  // Switch pin (button)
 
+// Rotary encoder timing constants
+#define ROTARY_IDLE_TIMEOUT_MS  80  // Idle timeout before clearing direction
+
 // Rotary encoder directions
 typedef enum {
     ROTARY_NONE = 0,

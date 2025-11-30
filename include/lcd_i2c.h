@@ -9,6 +9,14 @@
 #define LCD_I2C_SDA_PIN      GPIO_NUM_21
 #define LCD_I2C_SCL_PIN      GPIO_NUM_22
 
+// LCD timing constants
+#define LCD_POWER_UP_DELAY_MS 50
+#define LCD_INIT_DELAY_MS 5
+#define LCD_COMMAND_DELAY_MS 2
+#define LCD_NIBBLE_DELAY_MS 1
+#define LCD_TEST_DELAY_MS 100
+#define LCD_BACKLIGHT_TEST_MS 2000
+
 #define LCD_RS_MASK          0x80   // P7
 #define LCD_RW_MASK          0x40   // P6  
 #define LCD_EN_MASK          0x20   // P5

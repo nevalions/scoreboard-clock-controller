@@ -1,17 +1,19 @@
-#include "../../radio-common/include/radio_config.h"
-#include "../../sport_selector/include/colors.h"
-#include "../../sport_selector/include/sport_selector.h"
-
-#include "../include/input_handler.h"
-#include "../include/lcd_i2c.h"
-#include "../include/radio_comm.h"
-#include "../include/rotary_encoder.h"
-#include "../include/sport_manager.h"
-#include "../include/timer_manager.h"
-#include "../include/ui_manager.h"
+#include <stdint.h>
+#include <stdbool.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "driver/gpio.h"
+#include "../../radio-common/include/radio_config.h"
+#include "../../sport_selector/include/colors.h"
+#include "../../sport_selector/include/sport_selector.h"
+#include "input_handler.h"
+#include "lcd_i2c.h"
+#include "radio_comm.h"
+#include "rotary_encoder.h"
+#include "sport_manager.h"
+#include "timer_manager.h"
+#include "ui_manager.h"
 
 static const char *TAG = "CONTROLLER";
 
@@ -29,13 +31,15 @@ static const char *TAG = "CONTROLLER";
 static RadioComm radio;
 static uint8_t sequence = 0;
 
-static inline uint32_t get_current_time_ms(void) {
-    return xTaskGetTickCount() * portTICK_PERIOD_MS;
-}
+// Main application state
+typedef struct {
+    uint32_t radio_last_transmit;
+    uint32_t debug_last_timer_output;
+} MainState;
 
-static inline bool time_elapsed(uint32_t start, uint32_t interval) {
-    return (get_current_time_ms() - start) >= interval;
-}
+static MainState main_state = {0};
+
+
 
 void app_main(void) {
     ESP_LOGI(TAG, "Starting Controller Application");
@@ -75,8 +79,6 @@ void app_main(void) {
     ESP_LOGI(TAG, "Controller initialized successfully");
 
     ui_manager_update_display(&ui_mgr, &initial_sport, timer_manager_get_seconds(&timer_mgr));
-
-    static uint32_t radio_last_transmit = 0;
 
     while (1) {
         InputAction action = input_handler_update(&input_handler, &sport_mgr, &timer_mgr);
@@ -124,14 +126,14 @@ void app_main(void) {
             timer_manager_mark_null_sent(&timer_mgr);
         }
 
-        static uint32_t debug_last_timer_output = 0;
-        if (time_elapsed(debug_last_timer_output, TIMER_DEBUG_INTERVAL_MS)) {
+        uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        if ((current_time - main_state.debug_last_timer_output) >= TIMER_DEBUG_INTERVAL_MS) {
             ESP_LOGI(TAG, "Timer state - running: %d, seconds: %d", 
                      timer_manager_is_running(&timer_mgr), timer_manager_get_seconds(&timer_mgr));
-            debug_last_timer_output = get_current_time_ms();
+            main_state.debug_last_timer_output = current_time;
         }
 
-        if (time_elapsed(radio_last_transmit, RADIO_TRANSMIT_INTERVAL_MS)) {
+        if ((current_time - main_state.radio_last_transmit) >= RADIO_TRANSMIT_INTERVAL_MS) {
             uint8_t time_to_send = timer_manager_get_seconds(&timer_mgr);
 
             if (timer_manager_get_seconds(&timer_mgr) == 0 && !timer_manager_is_running(&timer_mgr)) {
@@ -142,7 +144,7 @@ void app_main(void) {
             uint8_t r = color.r, g = color.g, b = color.b;
 
             radio_send_time(&radio, time_to_send, r, g, b, sequence++);
-            radio_last_transmit = get_current_time_ms();
+            main_state.radio_last_transmit = current_time;
         }
 
         radio_update_link_status(&radio);

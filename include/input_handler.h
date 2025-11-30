@@ -1,10 +1,12 @@
 #pragma once
 
-#include "../include/button_driver.h"
-#include "../include/rotary_encoder.h"
-#include "../include/sport_manager.h"
-#include "../include/timer_manager.h"
+#include <stdint.h>
+#include <stdbool.h>
 #include "driver/gpio.h"
+#include "button_driver.h"
+#include "rotary_encoder.h"
+#include "sport_manager.h"
+#include "timer_manager.h"
 
 typedef enum {
     INPUT_ACTION_NONE,

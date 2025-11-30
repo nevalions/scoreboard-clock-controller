@@ -7,6 +7,14 @@
 #include "../../radio-common/include/radio_config.h"
 #include "../../radio-common/include/radio_common.h"
 
+// Radio timing constants
+#define RADIO_TRANSMIT_TIMEOUT_MS 30
+#define RADIO_LINK_SUCCESS_WINDOW_MS 5000
+#define RADIO_LINK_FAILURE_WINDOW_MS 2000
+#define RADIO_LINK_LOG_INTERVAL_MS 10000
+#define RADIO_LINK_SUCCESS_RATE_THRESHOLD 0.5f
+#define RADIO_LINK_QUALITY_THRESHOLD 0.7f
+
 // Radio communication structure - extends RadioCommon with controller-specific fields
 typedef struct {
   RadioCommon base;  // radio-common base structure
@@ -17,6 +25,10 @@ typedef struct {
   uint16_t success_count;
   uint16_t failure_count;
   bool link_good;
+  
+  // Runtime state (moved from static variables)
+  bool led_state;
+  uint32_t last_log_time;
 } RadioComm;
 
 // Function declarations
