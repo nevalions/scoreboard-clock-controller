@@ -215,6 +215,43 @@ Use `idf.py menuconfig` to access:
 - Verify all pin connections match hardware configuration
 - Ensure proper power supply stability
 
+## Architecture
+
+### Modular Design
+
+The controller features a clean modular architecture with clear separation of concerns and well-defined interfaces:
+
+#### Core Management Modules
+- **Input Handler**: Centralizes all user input processing from button and rotary encoder events into unified actions
+- **Sport Manager**: Manages sport selection, configuration state, and sport transitions
+- **Timer Manager**: Handles countdown logic, timer state management, and timing services
+- **UI Manager**: Controls LCD display rendering and user interface updates based on system state
+
+#### Hardware Interface Modules
+- **Button Driver**: Low-level button press detection, debouncing, and duration tracking
+- **Rotary Encoder**: KY-040 rotary encoder interface with direction detection and button handling
+- **Radio Comm**: nRF24L01+ radio interface, protocol implementation, and real-time link quality monitoring
+- **LCD I2C**: 1602A display driver with I2C/PCF8574 communication and display management
+
+#### Design Benefits
+- **Separation of Concerns**: Each module has a single, well-defined responsibility
+- **Clear Interfaces**: Well-defined data structures and function signatures between modules
+- **State Encapsulation**: Module state is kept private with controlled access through interfaces
+- **Dependency Injection**: Module references passed as parameters rather than using globals
+- **Thread Safety**: Struct-based state management avoids static variables in functions
+- **Maintainability**: Easy to understand, modify, and extend individual components
+- **Testability**: Each module can be tested independently with clear inputs/outputs
+
+#### Data Flow Architecture
+1. **Hardware Layer**: Button driver and rotary encoder capture raw input events
+2. **Input Processing**: Input handler converts raw events into high-level actions
+3. **State Management**: Sport and timer managers maintain application state
+4. **UI Updates**: UI manager renders current state to LCD display
+5. **Communication**: Radio comm broadcasts time data and monitors link quality
+6. **Coordination**: Main loop orchestrates all modules with proper timing
+
+This modular architecture enables easier feature additions, debugging, and maintenance while ensuring clean code organization and minimal coupling between components.
+
 ## Development
 
 ### Project Structure
@@ -222,23 +259,39 @@ Use `idf.py menuconfig` to access:
 ```
 controller/
 ├── main/                    # Main application code
-│   ├── main.c              # Application entry point and sport management
-│   ├── button_driver.c     # Button handling and debouncing
-│   ├── rotary_encoder.c    # Rotary encoder interface and direction detection
-│   ├── radio_comm.c        # Radio communication and link monitoring
-│   └── lcd_i2c.c           # LCD display driver and management
-├── include/                # Header files
-│   ├── button_driver.h     # Button interface and structures
-│   ├── rotary_encoder.h    # Rotary encoder interface and structures
-│   ├── radio_comm.h        # Radio interface and structures
-│   └── lcd_i2c.h           # LCD interface and structures
+│   ├── main.c              # Application entry point and main control loop coordination
+│   ├── input_handler.c     # Unified input processing from button and rotary encoder
+│   ├── sport_manager.c     # Sport selection, configuration, and state management
+│   ├── timer_manager.c     # Timer countdown logic and state management
+│   ├── ui_manager.c        # LCD display management and user interface rendering
+│   ├── button_driver.c     # Low-level button press detection and debouncing
+│   ├── rotary_encoder.c    # KY-040 rotary encoder interface and direction detection
+│   ├── radio_comm.c        # nRF24L01+ radio interface and link quality monitoring
+│   └── lcd_i2c.c           # 1602A LCD driver with I2C/PCF8574 interface
+├── include/                # Header files with module interfaces
+│   ├── input_handler.h     # Input processing interface and data structures
+│   ├── sport_manager.h     # Sport management interface and configuration types
+│   ├── timer_manager.h     # Timer management interface and state definitions
+│   ├── ui_manager.h        # UI management interface and display constants
+│   ├── button_driver.h     # Button interface and event structures
+│   ├── rotary_encoder.h    # Rotary encoder interface and direction enums
+│   ├── radio_comm.h        # Radio interface and protocol definitions
+│   └── lcd_i2c.h           # LCD interface and I2C communication constants
 ├── radio-common/           # Shared radio functionality (submodule)
 ├── sport-selector/         # Sport configuration management (submodule)
-├── CMakeLists.txt          # Build configuration
-├── sdkconfig.defaults      # Default ESP-IDF configuration
-├── WIRING.md               # Detailed wiring documentation
+├── CMakeLists.txt          # Root build configuration
+├── main/CMakeLists.txt     # Main component build configuration
+├── sdkconfig.defaults      # Default ESP-IDF configuration settings
+├── WIRING.md               # Detailed hardware wiring documentation
+├── AGENTS.md               # Development guidelines for agents/LLMs
 └── README.md               # This file
 ```
+
+#### Module Organization
+- **Core Modules** (`input_handler`, `sport_manager`, `timer_manager`, `ui_manager`): Handle application logic and state
+- **Driver Modules** (`button_driver`, `rotary_encoder`, `radio_comm`, `lcd_i2c`): Interface with hardware components
+- **Interface Headers**: Define clear contracts between modules with well-structured data types
+- **Submodules**: Reusable components shared across projects (`radio-common`, `sport-selector`)
 
 ### Build Commands
 

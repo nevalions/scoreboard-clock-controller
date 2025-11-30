@@ -49,6 +49,14 @@ idf.py flash monitor
 - **Consolidate Logic**: Combine similar switch statements into helper functions
 - **Variable Naming**: Use descriptive names that indicate purpose
 - **Code Organization**: Group related variables and functions together
+- **Modular Architecture**: Separate concerns into distinct modules (input, sport, timer, UI)
+- **Interface Design**: Use clear interfaces between modules with well-defined data structures
+- **State Management**: Keep state within appropriate manager modules
+- **Dependency Injection**: Pass module references as parameters rather than using globals
+- **Module Boundaries**: Respect module interfaces and avoid circular dependencies
+- **Single Responsibility**: Each module should have one clear purpose
+- **State Encapsulation**: Keep module state private, expose only necessary interfaces
+- **Thread Safety**: Use struct-based state instead of static variables in functions
 
 ### Code Quality Standards
 - **Defensive Programming**: Always validate input parameters
@@ -56,6 +64,12 @@ idf.py flash monitor
 - **Error Propagation**: Consistent error handling patterns
 - **Documentation**: Clear function and variable naming
 - **Maintainability**: Code should be easy to understand and modify
+- **Module Boundaries**: Respect module interfaces and avoid circular dependencies
+- **State Encapsulation**: Keep module state private and expose only necessary interfaces
+- **Single Responsibility**: Each module should have a single, well-defined purpose
+- **Thread Safety**: Avoid static variables in functions, use struct members
+- **Memory Safety**: Add NULL pointer checks for all pointer parameters
+- **Constants**: Replace magic numbers with named constants
 
 ## Hardware Configuration
 
@@ -109,9 +123,13 @@ idf.py flash monitor
 ## Component Architecture
 
 ### Main Components
-- **main.c**: Application entry point, main control loop, and sport management
-- **button_driver.c**: Button press detection, debouncing, and duration timing
-- **rotary_encoder.c**: KY-040 rotary encoder interface, direction detection, and button handling
+- **main.c**: Application entry point and main control loop coordination
+- **input_handler.c**: Unified input processing for button and rotary encoder events
+- **sport_manager.c**: Sport selection and configuration management
+- **timer_manager.c**: Timer state management and countdown logic
+- **ui_manager.c**: User interface display management and LCD control
+- **button_driver.c**: Low-level button press detection and debouncing
+- **rotary_encoder.c**: KY-040 rotary encoder interface and direction detection
 - **radio_comm.c**: nRF24L01+ radio interface, protocol implementation, and link quality monitoring
 - **lcd_i2c.c**: 1602A LCD driver with I2C/PCF8574 interface
 - **radio-common/**: Shared radio functionality (submodule)
@@ -120,11 +138,14 @@ idf.py flash monitor
 ### Data Flow
 1. Button driver detects press events and duration
 2. Rotary encoder handles sport browsing, selection, and time adjustment
-3. Main loop updates time counter when running
-4. Radio comm broadcasts time packets (4Hz) with sequence numbers
-5. LCD displays current sport, time, and selection status
-6. Status LED reflects radio link quality in real-time
-7. Serial logs provide debugging and status information
+3. Input handler processes button and rotary encoder events into unified actions
+4. Sport manager manages sport selection and configuration
+5. Timer manager handles countdown logic and state management
+6. UI manager updates LCD display with current status
+7. Main loop coordinates all components and updates time counter when running
+8. Radio comm broadcasts time packets (4Hz) with sequence numbers
+9. Status LED reflects radio link quality in real-time
+10. Serial logs provide debugging and status information
 
 ### Sport Management
 - **Sport Selection**: Rotary encoder browses sports with preview before confirmation
@@ -132,6 +153,22 @@ idf.py flash monitor
 - **Time Adjustment**: Button + rotation adjusts time manually
 - **Default Times**: Each sport has configurable play clock durations
 - **Selection Mode**: LCD shows `>` prefix when browsing sports
+
+### Module Interaction
+- **Input Handler**: Processes raw button and encoder events into high-level actions
+- **Sport Manager**: Maintains current sport state and handles sport transitions
+- **Timer Manager**: Manages countdown state and provides timing services
+- **UI Manager**: Renders display based on sport and timer state
+- **Main Loop**: Coordinates module updates and handles timing intervals
+
+### Modular Architecture Principles
+- **Clear Separation**: Each module handles one specific aspect of functionality
+- **Well-Defined Interfaces**: Modules communicate through structured data and function calls
+- **State Localization**: Module state is contained within the module and accessed via interfaces
+- **Dependency Management**: Modules depend only on interfaces, not implementations
+- **Testability**: Each module can be unit tested independently
+- **Extensibility**: New features can be added by extending or adding modules
+- **Maintainability**: Changes to one module don't affect others if interfaces remain stable
 
 ## Build System
 
@@ -145,17 +182,25 @@ idf.py flash monitor
 ```
 main/
 ├── CMakeLists.txt    # Component registration
-├── main.c           # Application logic and sport management
-├── button_driver.c   # Button handling and debouncing
-├── rotary_encoder.c  # Rotary encoder handling and direction detection
-├── radio_comm.c      # Radio interface and link monitoring
-└── lcd_i2c.c         # LCD driver and display management
+├── main.c           # Application logic and coordination
+├── input_handler.c  # Unified input processing
+├── sport_manager.c  # Sport selection management
+├── timer_manager.c  # Timer state management
+├── ui_manager.c     # UI display management
+├── button_driver.c  # Button handling and debouncing
+├── rotary_encoder.c # Rotary encoder handling and direction detection
+├── radio_comm.c     # Radio interface and link monitoring
+└── lcd_i2c.c        # LCD driver and display management
 
 include/
-├── button_driver.h   # Button interface and structures
-├── rotary_encoder.h  # Rotary encoder interface and structures
-├── radio_comm.h      # Radio interface and structures
-└── lcd_i2c.h         # LCD interface and structures
+├── input_handler.h  # Input processing interface
+├── sport_manager.h  # Sport management interface
+├── timer_manager.h  # Timer management interface
+├── ui_manager.h     # UI management interface
+├── button_driver.h  # Button interface and structures
+├── rotary_encoder.h # Rotary encoder interface and structures
+├── radio_comm.h     # Radio interface and structures
+└── lcd_i2c.h        # LCD interface and structures
 ```
 
 ## Testing & Debugging
@@ -244,3 +289,13 @@ include/
 - Link quality monitoring at 0.1Hz (10-second intervals)
 - Memory usage should remain stable without leaks
 - CPU usage should be minimal during normal operation
+
+### Module Development Guidelines
+- **Interface First**: Design clear interfaces before implementing module logic
+- **State Management**: Use structs to encapsulate module state, avoid static variables
+- **Error Handling**: Return bool for success/failure, validate all inputs
+- **Logging**: Use ESP_LOG* macros with descriptive TAG for debugging
+- **Initialization**: Provide begin/init functions and proper cleanup
+- **Dependencies**: Minimize inter-module dependencies, prefer parameter passing
+- **Testing**: Design modules to be testable in isolation
+- **Documentation**: Use descriptive function and variable names instead of comments
