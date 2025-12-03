@@ -1,14 +1,15 @@
 #pragma once
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef struct {
-    uint16_t current_seconds;
-    bool is_running;
-    bool null_sent;
-    uint32_t timer_last_update;
-    uint32_t zero_reached_timestamp;
+  uint16_t current_seconds;
+  bool is_running;
+  bool null_sent;
+
+  uint32_t timer_last_update;      // timestamp of last 1-second tick
+  uint32_t zero_reached_timestamp; // when 0 was reached (for null signal)
 } TimerManager;
 
 void timer_manager_init(TimerManager *manager, uint16_t initial_seconds);
