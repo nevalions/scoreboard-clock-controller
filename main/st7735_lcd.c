@@ -73,17 +73,26 @@ bool st7735_begin(St7735Lcd *lcd, gpio_num_t cs, gpio_num_t dc, gpio_num_t rst,
   gpio_config(&io_conf);
 
   // SPI bus
+
   spi_bus_config_t buscfg = {.mosi_io_num = mosi,
                              .miso_io_num = -1,
                              .sclk_io_num = sclk,
+                             .quadwp_io_num = -1, // IMPORTANT!
+                             .quadhd_io_num = -1, // IMPORTANT!
                              .max_transfer_sz = sizeof(line_buf) * 2};
-  spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO);
+  // spi_bus_config_t buscfg = {.mosi_io_num = mosi,
+  //                            .miso_io_num = -1,
+  //                            .sclk_io_num = sclk,
+  //                            .max_transfer_sz = sizeof(line_buf) * 2};
+  // spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO);
+  spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
 
   spi_device_interface_config_t devcfg = {.clock_speed_hz = 26 * 1000 * 1000,
                                           .mode = 0,
                                           .spics_io_num = cs,
                                           .queue_size = 3};
-  spi_bus_add_device(SPI3_HOST, &devcfg, &lcd->spi);
+  spi_bus_add_device(SPI2_HOST, &devcfg, &lcd->spi);
+  // spi_bus_add_device(SPI3_HOST, &devcfg, &lcd->spi);
 
   // Hardware reset
   gpio_set_level(rst, 0);

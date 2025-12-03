@@ -23,13 +23,18 @@ static const char *TAG = "CONTROLLER";
 #define NRF24_CE_PIN GPIO_NUM_5
 #define NRF24_CSN_PIN GPIO_NUM_4
 
-// ST7735 SPI Display Pins (your wiring)
-#define ST7735_CS_PIN GPIO_NUM_12
-#define ST7735_DC_PIN GPIO_NUM_14
-#define ST7735_RST_PIN GPIO_NUM_15
-#define ST7735_SDA_PIN GPIO_NUM_13 // MOSI
-#define ST7735_SCL_PIN GPIO_NUM_2  // SCK
-
+// ST7735 SPI Display Pins
+#define ST7735_CS_PIN GPIO_NUM_27
+#define ST7735_DC_PIN GPIO_NUM_26
+#define ST7735_RST_PIN GPIO_NUM_25
+#define ST7735_SDA_PIN GPIO_NUM_13 // MOSI (HSPI)
+#define ST7735_SCL_PIN GPIO_NUM_14 // SCK  (HSPI)
+// #define ST7735_CS_PIN GPIO_NUM_12
+// #define ST7735_DC_PIN GPIO_NUM_14
+// #define ST7735_RST_PIN GPIO_NUM_15
+// #define ST7735_SDA_PIN GPIO_NUM_13 // MOSI
+// #define ST7735_SCL_PIN GPIO_NUM_2  // SCK
+//
 // Display configuration - set to true to use ST7735, false to use I2C LCD
 #define USE_ST7735_DISPLAY true // Re-enable ST7735 with task delay after init
 
