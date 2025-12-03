@@ -23,7 +23,6 @@ static const char *TAG = "CONTROLLER";
 #define NRF24_CE_PIN GPIO_NUM_5
 #define NRF24_CSN_PIN GPIO_NUM_4
 
-// ST7735 SPI pins
 #define ST7735_CS_PIN GPIO_NUM_27
 #define ST7735_DC_PIN GPIO_NUM_26
 #define ST7735_RST_PIN GPIO_NUM_25
@@ -73,11 +72,9 @@ void app_main(void) {
     return;
   }
 
-  // Initial draw
   ui_manager_update_display(&ui_mgr, &initial_sport,
                             timer_manager_get_seconds(&timer_mgr));
 
-  // Init radio
   if (!radio_begin(&radio, NRF24_CE_PIN, NRF24_CSN_PIN)) {
     ESP_LOGE(TAG, "Radio failed to initialize");
     return;
@@ -97,9 +94,6 @@ void app_main(void) {
 
     sport_config_t current_sport = sport_manager_get_current_sport(&sport_mgr);
 
-    // ----------------------------------
-    // INPUT ACTION PROCESSING
-    // ----------------------------------
     switch (action) {
 
     case INPUT_ACTION_START_STOP:
@@ -108,27 +102,28 @@ void app_main(void) {
 
     case INPUT_ACTION_RESET:
       timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
-      ui_manager_update_display(&ui_mgr, &current_sport,
-                                timer_manager_get_seconds(&timer_mgr));
+
+      // ⛔ No full redraw → header won't blink
+      ui_manager_update_time(&ui_mgr, &current_sport,
+                             timer_manager_get_seconds(&timer_mgr));
       break;
 
     case INPUT_ACTION_TIME_ADJUST:
-      ui_manager_update_display(&ui_mgr, &current_sport,
-                                timer_manager_get_seconds(&timer_mgr));
+      ui_manager_update_time(&ui_mgr, &current_sport,
+                             timer_manager_get_seconds(&timer_mgr));
       break;
 
     case INPUT_ACTION_SPORT_CHANGE:
-      // Double-tap -> switch to next sport
       timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
       ui_manager_update_display(&ui_mgr, &current_sport,
                                 timer_manager_get_seconds(&timer_mgr));
       break;
 
     case INPUT_ACTION_SPORT_SELECT: {
-      sport_config_t selected =
+      sport_config_t sel =
           get_sport_config(sport_manager_get_selected_type(&sport_mgr));
 
-      ui_manager_show_sport_selection(&ui_mgr, &selected,
+      ui_manager_show_sport_selection(&ui_mgr, &sel,
                                       timer_manager_get_seconds(&timer_mgr));
     } break;
 
@@ -144,26 +139,18 @@ void app_main(void) {
       break;
     }
 
-    // ----------------------------------
-    // Timer update
-    // ----------------------------------
     timer_manager_update(&timer_mgr);
 
     uint16_t now = timer_manager_get_seconds(&timer_mgr);
 
     if (now != last_time) {
-      // Only update time area, not header
       ui_manager_update_time(&ui_mgr, &current_sport, now);
       last_time = now;
     }
 
-    // ----------------------------------
-    // RADIO SENDING
-    // ----------------------------------
     uint32_t t = xTaskGetTickCount() * portTICK_PERIOD_MS;
 
     if (t - main_state.radio_last_transmit >= RADIO_TRANSMIT_INTERVAL_MS) {
-
       uint8_t sec = timer_manager_get_seconds(&timer_mgr);
       color_t c = get_sport_color(current_sport.color_scheme, sec);
 
