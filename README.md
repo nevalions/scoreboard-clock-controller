@@ -11,7 +11,7 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 - **Sport Selection**: Multiple sport configurations with configurable play clock durations
 - **Time Control**: Start, stop, and reset functionality with manual time adjustment
 - **Wireless Communication**: nRF24L01+ radio module for broadcasting to display units
-- **Local Display**: 1602A LCD for current status, time, and sport information
+- **Local Display**: Dual display support - 1602A I2C LCD or ST7735 TFT color display
 - **User Interface**: KY-040 rotary encoder for navigation and control button for operations
 - **Link Quality Monitoring**: Real-time radio link quality indication via status LED
 
@@ -22,7 +22,7 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 - ESP32 development board
 - nRF24L01+ radio module with PCB antenna
 - KY-040 Rotary Encoder Module
-- 1602A LCD with I2C adapter (PCF8574)
+- Display option: 1602A LCD with I2C adapter (PCF8574) OR ST7735 128x160 TFT display
 - Momentary push button (normally open)
 - 10µF capacitor (optional, recommended for power stability)
 
@@ -50,7 +50,9 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 | DT          | GPIO35     | Data pin (B) - input-only  |
 | SW          | GPIO32     | Switch pin (button)        |
 
-#### LCD Module (1602A with I2C)
+#### Display Options
+
+**Option 1: 1602A LCD with I2C (Default)**
 
 | LCD Pin | ESP32 GPIO | Description  |
 | ------- | ---------- | ------------ |
@@ -58,6 +60,20 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 | GND     | GND        | Ground       |
 | SDA     | GPIO21     | I2C Data     |
 | SCL     | GPIO22     | I2C Clock    |
+
+**Option 2: ST7735 128x160 TFT Display**
+
+| TFT Pin | ESP32 GPIO | Description               |
+| ------- | ---------- | ------------------------- |
+| VCC     | 3.3V       | Power supply              |
+| GND     | GND        | Ground                    |
+| CS      | GPIO12     | SPI Chip Select           |
+| DC      | GPIO14     | Data/Command              |
+| RST     | GPIO15     | Reset                     |
+| SDA/MOSI| GPIO13     | SPI Data (separate bus)   |
+| SCL/SCK | GPIO2      | SPI Clock (separate bus)  |
+
+**Display Selection**: Configure in `main.c` by setting `USE_ST7735_DISPLAY` constant.
 
 #### Control Button and Status LED
 
@@ -108,14 +124,20 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 - **⚫ Solid OFF**: No link or poor connection quality
 - **🟡 Blinking**: Recent transmission failures detected
 
-### LCD Display Information
+### Display Information
 
+**1602A I2C LCD:**
 - **Line 1**: Sport name and variation (with `>` prefix in selection mode)
 - **Line 2**: Current time in seconds (formatted as 3 digits)
 
+**ST7735 TFT Display:**
+- **Color graphics** with sport name, time, and visual indicators
+- **Selection highlighting** with colored borders
+- **Enhanced visibility** with larger text and status indicators
+
 **Display Modes:**
-- **Normal**: `Basketball 24sec` (current active sport)
-- **Selection**: `>Basketball 24sec` (browsing, press to confirm)
+- **Normal**: Shows current active sport and time
+- **Selection**: Browsing mode with visual selection indicators
 
 ## Installation & Setup
 
@@ -199,7 +221,9 @@ Use `idf.py menuconfig` to access:
 - **Time not advancing**: Check button press detection and timing logic
 - **Rotary encoder not working**: Verify CLK/DT connections and pull-up resistors
 - **Sport selection not working**: Check rotary encoder button press detection
-- **LCD not displaying**: Check I2C connections and address (0x27)
+- **Display not working**: 
+  - **1602A LCD**: Check I2C connections and address (0x27)
+  - **ST7735 TFT**: Verify SPI connections and 3.3V power
 - **Build failures**: Ensure ESP-IDF environment is properly configured
 
 ### Debug Information
@@ -232,6 +256,7 @@ The controller features a clean modular architecture with clear separation of co
 - **Rotary Encoder**: KY-040 rotary encoder interface with direction detection and button handling
 - **Radio Comm**: nRF24L01+ radio interface, protocol implementation, and real-time link quality monitoring
 - **LCD I2C**: 1602A display driver with I2C/PCF8574 communication and display management
+- **ST7735 LCD**: 128x160 TFT display driver with SPI interface and color graphics support
 
 #### Design Benefits
 - **Separation of Concerns**: Each module has a single, well-defined responsibility
@@ -267,7 +292,9 @@ controller/
 │   ├── button_driver.c     # Low-level button press detection and debouncing
 │   ├── rotary_encoder.c    # KY-040 rotary encoder interface and direction detection
 │   ├── radio_comm.c        # nRF24L01+ radio interface and link quality monitoring
-│   └── lcd_i2c.c           # 1602A LCD driver with I2C/PCF8574 interface
+│   ├── lcd_i2c.c           # 1602A LCD driver with I2C/PCF8574 interface
+│   ├── st7735_lcd.c        # ST7735 TFT display driver with SPI interface
+│   └── font8x8.c           # Font data for ST7735 text rendering
 ├── include/                # Header files with module interfaces
 │   ├── input_handler.h     # Input processing interface and data structures
 │   ├── sport_manager.h     # Sport management interface and configuration types
@@ -276,7 +303,8 @@ controller/
 │   ├── button_driver.h     # Button interface and event structures
 │   ├── rotary_encoder.h    # Rotary encoder interface and direction enums
 │   ├── radio_comm.h        # Radio interface and protocol definitions
-│   └── lcd_i2c.h           # LCD interface and I2C communication constants
+│   ├── lcd_i2c.h           # LCD interface and I2C communication constants
+│   └── st7735_lcd.h        # ST7735 TFT interface and SPI communication constants
 ├── radio-common/           # Shared radio functionality (submodule)
 ├── sport-selector/         # Sport configuration management (submodule)
 ├── CMakeLists.txt          # Root build configuration
@@ -289,7 +317,7 @@ controller/
 
 #### Module Organization
 - **Core Modules** (`input_handler`, `sport_manager`, `timer_manager`, `ui_manager`): Handle application logic and state
-- **Driver Modules** (`button_driver`, `rotary_encoder`, `radio_comm`, `lcd_i2c`): Interface with hardware components
+- **Driver Modules** (`button_driver`, `rotary_encoder`, `radio_comm`, `lcd_i2c`, `st7735_lcd`): Interface with hardware components
 - **Interface Headers**: Define clear contracts between modules with well-structured data types
 - **Submodules**: Reusable components shared across projects (`radio-common`, `sport-selector`)
 
