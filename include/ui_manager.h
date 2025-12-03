@@ -24,6 +24,9 @@ void ui_manager_init_st7735(UiManager *manager, gpio_num_t cs_pin,
                             gpio_num_t dc_pin, gpio_num_t rst_pin,
                             gpio_num_t mosi_pin, gpio_num_t sck_pin);
 
+void ui_manager_update_time(UiManager *manager, const sport_config_t *sport,
+                            uint16_t seconds);
+
 void ui_manager_update_display(UiManager *manager, const sport_config_t *sport,
                                uint16_t seconds);
 
