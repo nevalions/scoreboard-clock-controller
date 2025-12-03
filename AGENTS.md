@@ -105,6 +105,17 @@ idf.py flash monitor
 | SDA | GPIO21 |
 | SCL | GPIO22 |
 
+### ST7735 LCD Module (128x160 1.77" TFT)
+| Connection | ESP32 Pin |
+|-----------|------------|
+| VCC | 3.3V |
+| GND | GND |
+| CS | GPIO13 |
+| DC | GPIO14 |
+| RST | GPIO15 |
+| SDA/MOSI | GPIO23 |
+| SCL/SCK | GPIO18 |
+
 ### KY-040 Rotary Encoder Module
 | Connection | ESP32 Pin |
 |-----------|------------|
@@ -127,11 +138,12 @@ idf.py flash monitor
 - **input_handler.c**: Unified input processing for button and rotary encoder events
 - **sport_manager.c**: Sport selection and configuration management
 - **timer_manager.c**: Timer state management and countdown logic
-- **ui_manager.c**: User interface display management and LCD control
+- **ui_manager.c**: User interface display management and LCD control (supports both I2C LCD and ST7735)
 - **button_driver.c**: Low-level button press detection and debouncing
 - **rotary_encoder.c**: KY-040 rotary encoder interface and direction detection
 - **radio_comm.c**: nRF24L01+ radio interface, protocol implementation, and link quality monitoring
 - **lcd_i2c.c**: 1602A LCD driver with I2C/PCF8574 interface
+- **st7735_lcd.c**: ST7735 128x160 TFT LCD driver with SPI interface
 - **radio-common/**: Shared radio functionality (submodule)
 - **sport_selector/**: Sport configuration management (submodule)
 
@@ -201,6 +213,30 @@ include/
 ├── rotary_encoder.h # Rotary encoder interface and structures
 ├── radio_comm.h     # Radio interface and structures
 └── lcd_i2c.h        # LCD interface and structures
+```
+
+## Display Configuration
+
+### I2C LCD (1602A)
+- **Display Type**: 1602A character LCD with PCF8574 I2C adapter
+- **Display Size**: 16 characters × 2 lines
+- **Interface**: I2C at address 0x27
+- **Pins**: SDA=GPIO21, SCL=GPIO22
+- **Features**: Character display, backlight control
+
+### ST7735 TFT (128x160)
+- **Display Type**: ST7735 1.77" color TFT display
+- **Display Size**: 128 pixels × 160 pixels
+- **Interface**: SPI
+- **Pins**: CS=GPIO13, DC=GPIO14, RST=GPIO15, MOSI=GPIO23, SCK=GPIO18
+- **Features**: Color graphics, text rendering, shapes, test patterns
+- **Configuration**: Set `USE_ST7735_DISPLAY` in main.c to switch between displays
+
+### Display Selection
+To switch between display types, modify the `USE_ST7735_DISPLAY` constant in `main.c`:
+```c
+#define USE_ST7735_DISPLAY true   // Use ST7735 TFT display
+// #define USE_ST7735_DISPLAY false  // Use I2C LCD display
 ```
 
 ## Testing & Debugging

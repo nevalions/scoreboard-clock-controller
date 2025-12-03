@@ -10,6 +10,7 @@
 #include "radio_comm.h"
 #include "rotary_encoder.h"
 #include "sport_manager.h"
+#include "st7735_lcd.h"
 #include "timer_manager.h"
 #include "ui_manager.h"
 #include <stdbool.h>
@@ -21,6 +22,16 @@ static const char *TAG = "CONTROLLER";
 #define CONTROL_BUTTON_PIN GPIO_NUM_0
 #define NRF24_CE_PIN GPIO_NUM_5
 #define NRF24_CSN_PIN GPIO_NUM_4
+
+// ST7735 SPI Display Pins (your wiring)
+#define ST7735_CS_PIN GPIO_NUM_12
+#define ST7735_DC_PIN GPIO_NUM_14
+#define ST7735_RST_PIN GPIO_NUM_15
+#define ST7735_SDA_PIN GPIO_NUM_13 // MOSI
+#define ST7735_SCL_PIN GPIO_NUM_2  // SCK
+
+// Display configuration - set to true to use ST7735, false to use I2C LCD
+#define USE_ST7735_DISPLAY true // Re-enable ST7735 with task delay after init
 
 #define RADIO_TRANSMIT_INTERVAL_MS 250
 #define MAIN_LOOP_DELAY_MS 50
@@ -58,14 +69,37 @@ void app_main(void) {
   input_handler_init(&input_handler, CONTROL_BUTTON_PIN, ROTARY_CLK_PIN,
                      ROTARY_DT_PIN, ROTARY_SW_PIN);
 
-  ui_manager_init(&ui_mgr, LCD_I2C_ADDR, LCD_I2C_SDA_PIN, LCD_I2C_SCL_PIN);
-  if (!ui_mgr.lcd.initialized) {
-    ESP_LOGE(TAG, "Failed to initialize I2C LCD");
+#if USE_ST7735_DISPLAY
+  ESP_LOGI(TAG, "Initializing ST7735 display");
+  // Small delay to let radio initialize first
+  vTaskDelay(pdMS_TO_TICKS(100));
+  ui_manager_init_st7735(&ui_mgr, ST7735_CS_PIN, ST7735_DC_PIN, ST7735_RST_PIN,
+                         ST7735_SDA_PIN, ST7735_SCL_PIN);
+  if (!ui_mgr.initialized) {
+    ESP_LOGE(TAG, "Failed to initialize ST7735 LCD");
+    return;
+  }
+
+  // Task delay after ST7735 initialization to prevent WDT reset
+  vTaskDelay(pdMS_TO_TICKS(100));
+
+  // TEST PATTERN HERE
+  st7735_test_pattern(&ui_mgr.st7735);
+  vTaskDelay(pdMS_TO_TICKS(3000));
+
+  ui_manager_clear(&ui_mgr);
+#else
+  ESP_LOGI(TAG, "Initializing I2C LCD display");
+  ui_manager_init_lcd_i2c(&ui_mgr, LCD_I2C_ADDR, LCD_I2C_SDA_PIN,
+                          LCD_I2C_SCL_PIN);
+#endif
+
+  if (!ui_mgr.initialized) {
+    ESP_LOGE(TAG, "Failed to initialize display");
     return;
   }
 
   // ui_manager_run_lcd_tests(&ui_mgr);  // Commented out for faster startup
-
   if (!radio_begin(&radio, NRF24_CE_PIN, NRF24_CSN_PIN)) {
     ESP_LOGE(TAG, "Failed to initialize radio");
     return;

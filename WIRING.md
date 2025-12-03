@@ -2,35 +2,66 @@
 
 ## Overview
 
-Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, 1602A LCD with PCF8574T I2C adapter, and KY-040 rotary encoder.
+Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, display options (1602A I2C LCD or ST7735 TFT), and KY-040 rotary encoder.
+
+## Display Options
+
+### Option 1: 1602A LCD with PCF8574T I2C Adapter (Default)
+
+- **Display**: 16 characters × 2 lines, monochrome
+- **Interface**: I2C
+- **Pins**: SDA=GPIO21, SCL=GPIO22
+
+### Option 2: ST7735 128x160 TFT Color Display
+
+- **Display**: 128×160 pixels, 65K colors
+- **Interface**: SPI (separate bus from radio)
+- **Pins**: CS=GPIO12, DC=GPIO14, RST=GPIO15, MOSI=GPIO13, SCK=GPIO2
+- **Configuration**: Set `USE_ST7735_DISPLAY = true` in main.c
+
+> **⚠️ CRITICAL PIN CONFLICT WARNING**:
+>
+> - ST7735 TFT shares GPIO18 (SCK) and GPIO23 (MOSI) with nRF24L01+ radio
+> - This creates SPI bus conflicts that can cause communication failures
+> - **Recommended**: Use 1602A I2C LCD (no conflicts) or implement separate SPI buses
+> - Both displays use the same software interface, just change the constant in main.c.
 
 ## Pin Assignments Summary
 
-| Component                 | ESP32 Pin | Function                          |
-| ------------------------- | --------- | --------------------------------- |
-| **Radio nRF24L01+**       |           |                                   |
-| VCC                       | 3.3V      | Power                             |
-| GND                       | GND       | Ground                            |
-| CE                        | GPIO5     | Chip Enable                       |
-| CSN                       | GPIO4     | SPI Chip Select                   |
-| SCK                       | GPIO18    | SPI Clock                         |
-| MOSI                      | GPIO23    | SPI Master Out                    |
-| MISO                      | GPIO19    | SPI Master In                     |
-| **LCD I2C Adapter**       |           |                                   |
-| VCC                       | 3.3V      | Power                             |
-| GND                       | GND       | Ground                            |
-| SDA                       | GPIO21    | I2C Data                          |
-| SCL                       | GPIO22    | I2C Clock                         |
-| **KY-040 Rotary Encoder** |           |                                   |
-| VCC                       | 3.3V      | Power                             |
-| GND                       | GND       | Ground                            |
-| CLK                       | GPIO34    | Clock (A) - Input Only            |
-| DT                        | GPIO35    | Data (B) - Input Only             |
-| SW                        | GPIO32    | Switch/Button                     |
-| **Control Button**        |           |                                   |
-| Button                    | GPIO0     | Control Button (Internal Pull-up) |
-| **Status LED**            |           |                                   |
-| LED                       | GPIO17    | Link Quality Indicator            |
+| Component                        | ESP32 Pin | Function                          |
+| -------------------------------- | --------- | --------------------------------- |
+| **Radio nRF24L01+**              |           |                                   |
+| VCC                              | 3.3V      | Power                             |
+| GND                              | GND       | Ground                            |
+| CE                               | GPIO5     | Chip Enable                       |
+| CSN                              | GPIO4     | SPI Chip Select                   |
+| SCK                              | GPIO18    | SPI Clock                         |
+| MOSI                             | GPIO23    | SPI Master Out                    |
+| MISO                             | GPIO19    | SPI Master In                     |
+| **Display Option 1: I2C LCD**    |           |                                   |
+| VCC                              | 3.3V      | Power                             |
+| GND                              | GND       | Ground                            |
+| SDA                              | GPIO21    | I2C Data                          |
+| SCL                              | GPIO22    | I2C Clock                         |
+| **Display Option 2: ST7735 TFT** |           |                                   |
+| Pin 2 (VCC)                      | 3.3V      | Power                             |
+| Pin 1 (GND)                      | GND       | Ground                            |
+| Pin 7 (CS)                       | GPIO12    | SPI Chip Select                   |
+| Pin 6 (RS/DC)                    | GPIO14    | Data/Command                      |
+| Pin 5 (RES)                      | GPIO15    | Reset                             |
+| Pin 4 (SDA/MOSI)                 | GPIO13    | SPI Data (separate from radio)    |
+| Pin 3 (SCK)                      | GPIO2     | SPI Clock (separate from radio)   |
+| Pin 8 (LEDA)                     | 3.3V      | Backlight (optional)              |
+| **KY-040 Rotary Encoder**        |           |                                   |
+| VCC                              | 3.3V      | Power                             |
+| GND                              | GND       | Ground                            |
+| CLK                              | GPIO34    | Clock (A) - Input Only            |
+| DT                               | GPIO35    | Data (B) - Input Only             |
+| SW                               | GPIO32    | Switch/Button                     |
+| **Control Button**               |           |                                   |
+| Button                           | GPIO0     | Control Button (Internal Pull-up) |
+| **Status LED**                   |           |                                   |
+| LED                              | GPIO17    | Link Quality Indicator            |
 
 ---
 
@@ -112,6 +143,102 @@ Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, 1602
 - **PCF8574T**: 0x20-0x27 (SO-16 surface mount - your module)
 - **PCF8574**: 0x20-0x27 (DIP package)
 - **PCF8574A**: 0x38-0x3F (alternative address range)
+
+---
+
+## ST7735 128x160 TFT Display (Option 2)
+
+### Connections
+
+**Your ST7735 1.77" Module Pinout:**
+
+| Module Pin | Pin Number | ESP32 Pin | Description  | Important Notes         |
+| ---------- | ---------- | --------- | ------------ | ----------------------- |
+| GND        | 1          | GND       | Ground       | Common ground           |
+| VCC        | 2          | 3.3V      | Power        | 3.3V ONLY               |
+| SCK        | 3          | GPIO2     | SPI Clock    | **Separate from radio** |
+| SDA/MOSI   | 4          | GPIO13    | SPI Data     | **Separate from radio** |
+| RES/RST    | 5          | GPIO15    | Reset        | Hardware reset          |
+| RS/DC      | 6          | GPIO14    | Data/Command | Control signal          |
+| CS         | 7          | GPIO12    | Chip Select  | SPI chip select         |
+| LEDA       | 8          | 3.3V      | Backlight    | Optional backlight      |
+
+### Physical Pin Layout
+
+```
+         ST7735 1.77" Module
+         +-----------------+
+      GND |1              8| LEDA  ← 3.3V (backlight)
+      VCC |2              7| CS    ← GPIO12
+      SCK |3              6| RS    ← GPIO14
+      SDA |4              5| RES   ← GPIO15
+         +-----------------+
+```
+
+### ⚠️ CRITICAL PIN CONFLICT WARNING
+
+**DANGEROUS SPI Bus Sharing:**
+
+- ST7735 shares GPIO18 (SCK) and GPIO23 (MOSI) with nRF24L01+ radio
+- **This creates conflicts** that can cause:
+  - Radio transmission failures
+  - Display corruption or no display
+  - Intermittent system crashes
+  - SPI bus contention errors
+
+**Final Pin Assignments (No Conflicts):**
+
+```
+Radio (SPI3_HOST):     SCK→GPIO18  MOSI→GPIO23  CSN→GPIO4
+ST7735 (SPI2_HOST):    SCK→GPIO2   MOSI→GPIO13  CS→GPIO12
+                        ✓SEPARATE!  ✓SEPARATE!  ✓OK
+```
+
+**Recommendations:**
+
+1. **Use 1602A I2C LCD** - No pin conflicts (recommended)
+2. **Implement separate SPI buses** - Advanced solution
+3. **Use software SPI for ST7735** - Slower but no conflicts
+
+**If you proceed with shared SPI:**
+
+- Each device has separate Chip Select (CS) pins
+- ESP32 SPI controller handles bus arbitration
+- **Expect potential reliability issues**
+
+**Display Features:**
+
+- **Resolution**: 128×160 pixels
+- **Colors**: 65K (16-bit RGB565)
+- **Interface**: SPI (up to 32MHz)
+- **Graphics**: Lines, rectangles, text, test patterns
+
+**Power Requirements:**
+
+- **Voltage**: 3.3V (do NOT use 5V)
+- **Current**: ~20-30mA (backlight dependent)
+- **Decoupling**: Add 10µF capacitor near display
+
+### Software Configuration
+
+To use ST7735 display, modify `main.c`:
+
+```c
+#define USE_ST7735_DISPLAY true   // Use ST7735 TFT
+// #define USE_ST7735_DISPLAY false  // Use I2C LCD
+```
+
+### Display Comparison
+
+| Feature    | 1602A I2C LCD   | ST7735 TFT      |
+| ---------- | --------------- | --------------- |
+| Size       | 16×2 characters | 128×160 pixels  |
+| Colors     | Monochrome      | 65K colors      |
+| Interface  | I2C             | SPI             |
+| Power      | ~20mA           | ~30mA           |
+| Features   | Text only       | Graphics + text |
+| Cost       | Low             | Medium          |
+| Visibility | Good            | Excellent       |
 
 ---
 
@@ -199,19 +326,28 @@ ESP32 GPIO0 ---- Button ---- GND
 
 ### Component Power Consumption
 
-| Component | Voltage | Current                | Notes                |
-| --------- | ------- | ---------------------- | -------------------- |
-| nRF24L01+ | 3.3V    | 15mA (max TX)          | Add 10µF decoupling  |
-| LCD + I2C | 3.3V    | 1-2mA + 20mA backlight | Backlight optional   |
-| KY-040    | 3.3V    | <1mA                   | With pull-ups        |
-| ESP32     | 3.3V    | 150-260mA              | Varies with CPU load |
+| Component       | Voltage | Current                | Notes                |
+| --------------- | ------- | ---------------------- | -------------------- |
+| nRF24L01+       | 3.3V    | 15mA (max TX)          | Add 10µF decoupling  |
+| 1602A LCD + I2C | 3.3V    | 1-2mA + 20mA backlight | Backlight optional   |
+| ST7735 TFT      | 3.3V    | 20-30mA + backlight    | Color graphics       |
+| KY-040          | 3.3V    | <1mA                   | With pull-ups        |
+| ESP32           | 3.3V    | 150-260mA              | Varies with CPU load |
 
 ### Total Requirements
 
+**With 1602A LCD:**
+
 - **Idle**: ~200mA
 - **Active**: ~300mA (with radio TX + backlight)
-- **Recommended Supply**: 500mA+ 3.3V power supply
-- **Decoupling**: 100µF electrolytic + 0.1µF ceramic near ESP32
+
+**With ST7735 TFT:**
+
+- **Idle**: ~220mA
+- **Active**: ~330mA (with radio TX + backlight)
+
+**Recommended Supply**: 500mA+ 3.3V power supply
+**Decoupling**: 100µF electrolytic + 0.1µF ceramic near ESP32
 
 ---
 
@@ -238,13 +374,28 @@ ESP32 GPIO0 ---- Button ---- GND
 3. **Short range**: Verify antenna and power supply
 4. **SPI errors**: Check MOSI/MISO not swapped
 
-### LCD Issues
+### Display Issues
+
+**1602A I2C LCD:**
 
 1. **Blank display**: Check I2C address (use scanner)
 2. **Garbage text**: Wrong I2C address or speed
 3. **No backlight**: Check 3.3V power and jumper settings
 4. **PCF8574T not responding**: Verify address jumpers
 5. **Wrong address**: Your module uses 0x20, not 0x27
+
+**ST7735 TFT Display:**
+
+1. **Blank screen**: Check 3.3V power (pins 1&2) and SPI connections
+2. **Garbled graphics**: SPI wiring error (check pins 3&4 for SCK/SDA)
+3. **No display**: Verify CS (pin7), DC (pin6), RST (pin5) connections
+4. **Wrong colors**: Check RGB565 color format
+5. **SPI conflicts**: ⚠️ **EXPECTED** due to shared GPIO18/23 with radio
+6. **Radio failures**: ⚠️ **EXPECTED** due to SPI bus contention
+7. **Flickering**: Add decoupling capacitor near display
+8. **Partial display**: Check initialization sequence
+9. **No backlight**: Connect pin 8 (LEDA) to 3.3V
+10. **System instability**: ⚠️ **NORMAL** due to SPI conflicts - consider I2C LCD
 
 ### Encoder Issues
 
@@ -276,11 +427,44 @@ idf.py flash monitor
 
 1. **Power Connections**: Connect 3.3V and GND to all modules
 2. **Radio Module**: Connect SPI pins (GPIO5,4,18,23,19)
-3. **I2C LCD**: Connect I2C pins (GPIO21,22)
+3. **Display Selection**:
+   - **For 1602A LCD**: Connect I2C pins (GPIO21,22)
+   - **For ST7735 TFT**: Connect SPI pins using your module's pin numbers:
+     - Pin 7 (CS) → GPIO12
+     - Pin 6 (RS/DC) → GPIO14
+     - Pin 5 (RES) → GPIO15
+     - Pin 4 (SDA/MOSI) → GPIO13
+     - Pin 3 (SCK) → GPIO2
+     - Pin 2 (VCC) → 3.3V
+     - Pin 1 (GND) → GND
+     - Pin 8 (LEDA) → 3.3V (backlight)
 4. **Rotary Encoder**: Connect encoder pins (GPIO34,35,32)
 5. **Control Button**: Connect button to GPIO0
 6. **Status LED**: Connect LED to GPIO17
-7. **Verify**: Double-check all connections before powering on
+7. **Software Configuration**: Set `USE_ST7735_DISPLAY` in main.c
+8. **Verify**: Double-check all connections before powering on
+
+### ⚠️ Critical Assembly Notes
+
+**SPI BUS SEPARATION (ST7735 Option):**
+
+- **Radio uses**: GPIO18 (SCK), GPIO23 (MOSI), GPIO4 (CSN) ✅
+- **ST7735 uses**: GPIO2 (SCK), GPIO13 (MOSI), GPIO12 (CS) ✅
+- **No pin conflicts**: Separate SPI buses implemented ✅
+- **Result**: Reliable operation for both devices ✅
+
+**Display Selection:**
+
+- **1602A I2C LCD**: No pin conflicts ✅ (RECOMMENDED)
+- **ST7735 TFT**: SPI pin conflicts ⚠️ (USE WITH CAUTION)
+- Only connect ONE display at a time
+- Configure software with matching `USE_ST7735_DISPLAY` setting
+
+**Display Selection:**
+
+- Only connect ONE display (1602A OR ST7735)
+- Configure software with matching `USE_ST7735_DISPLAY` setting
+- Both displays use same software interface
 
 ---
 
