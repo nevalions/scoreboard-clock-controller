@@ -68,6 +68,9 @@ void st7735_set_pixel(St7735Lcd *lcd, uint16_t x, uint16_t y, uint16_t color);
 void st7735_draw_rect(St7735Lcd *lcd, int x, int y, int w, int h,
                       uint16_t color);
 
+void st7735_draw_rect_outline(St7735Lcd *lcd, int x, int y, int w, int h,
+                              uint16_t color);
+
 void st7735_draw_char(St7735Lcd *lcd, int x, int y, char c, uint16_t fg,
                       uint16_t bg, uint8_t size);
 

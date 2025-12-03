@@ -19,15 +19,17 @@ typedef struct {
 
 void ui_manager_init_lcd_i2c(UiManager *manager, uint8_t i2c_addr,
                              gpio_num_t sda_pin, gpio_num_t scl_pin);
+
 void ui_manager_init_st7735(UiManager *manager, gpio_num_t cs_pin,
                             gpio_num_t dc_pin, gpio_num_t rst_pin,
                             gpio_num_t mosi_pin, gpio_num_t sck_pin);
+
 void ui_manager_update_display(UiManager *manager, const sport_config_t *sport,
                                uint16_t seconds);
+
 void ui_manager_show_sport_selection(UiManager *manager,
                                      const sport_config_t *selected_sport,
                                      uint16_t current_seconds);
-void st7735_draw_rect_outline(St7735Lcd *lcd, int x, int y, int w, int h,
-                              uint16_t color);
+
 void ui_manager_clear(UiManager *manager);
 void ui_manager_run_lcd_tests(UiManager *manager);
