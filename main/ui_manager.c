@@ -91,8 +91,8 @@ void ui_manager_update_display(UiManager *manager, const sport_config_t *sport,
                   "Time: %03d", seconds);
 
     // Border
-    st7735_draw_rect(&manager->st7735, 0, 0, ST7735_WIDTH, ST7735_HEIGHT,
-                     ST7735_BLUE);
+    st7735_draw_rect_outline(&manager->st7735, 0, 0, ST7735_WIDTH,
+                             ST7735_HEIGHT, ST7735_BLUE);
   }
 }
 
@@ -122,7 +122,7 @@ void ui_manager_show_sport_selection(UiManager *manager,
     st7735_clear(&manager->st7735, ST7735_BLACK);
 
     // Highlighted item
-    st7735_printf(&manager->st7735, 5, 10, ST7735_GREEN, ST7735_BLACK, 2,
+    st7735_printf(&manager->st7735, 5, 10, ST7735_GREEN, ST7735_BLACK, 1,
                   ">%s %s", selected_sport->name, selected_sport->variation);
 
     // Timer below

@@ -27,5 +27,7 @@ void ui_manager_update_display(UiManager *manager, const sport_config_t *sport,
 void ui_manager_show_sport_selection(UiManager *manager,
                                      const sport_config_t *selected_sport,
                                      uint16_t current_seconds);
+void st7735_draw_rect_outline(St7735Lcd *lcd, int x, int y, int w, int h,
+                              uint16_t color);
 void ui_manager_clear(UiManager *manager);
 void ui_manager_run_lcd_tests(UiManager *manager);

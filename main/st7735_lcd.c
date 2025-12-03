@@ -189,6 +189,24 @@ void st7735_draw_rect(St7735Lcd *lcd, int x, int y, int w, int h,
 }
 
 // ------------------------------------------------------
+// Outline rectangle (1-pixel border)
+// ------------------------------------------------------
+void st7735_draw_rect_outline(St7735Lcd *lcd, int x, int y, int w, int h,
+                              uint16_t color) {
+  if (!lcd->initialized)
+    return;
+
+  // Top
+  st7735_draw_rect(lcd, x, y, w, 1, color);
+  // Bottom
+  st7735_draw_rect(lcd, x, y + h - 1, w, 1, color);
+  // Left
+  st7735_draw_rect(lcd, x, y, 1, h, color);
+  // Right
+  st7735_draw_rect(lcd, x + w - 1, y, 1, h, color);
+}
+
+// ------------------------------------------------------
 // Font (8x8) — minimal, same as before
 // ------------------------------------------------------
 extern const uint8_t font8x8[96][8];
@@ -210,6 +228,7 @@ void st7735_draw_char(St7735Lcd *lcd, int x, int y, char c, uint16_t fg,
 
       // FIXED — bit0 = left pixel, bit7 = right pixel
       uint16_t color = (glyph[row] & (1 << col)) ? fg : bg;
+      // uint16_t color = (glyph[row] & (1 << (7 - col))) ? fg : bg;
 
       if (size == 1)
         st7735_set_pixel(lcd, x + col, y + row, color);
