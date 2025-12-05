@@ -26,7 +26,7 @@ void input_handler_init(InputHandler *h, gpio_num_t control_pin,
 }
 
 // -----------------------------------------------------------------------------
-// UPDATE LOOP
+// UPDATE LOOP — NOW FULLY AWARE OF UI STATE
 // -----------------------------------------------------------------------------
 InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
                                  TimerManager *timer_mgr) {
@@ -40,129 +40,134 @@ InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
   bool pressed = button_is_pressed(&h->control_button);
 
   // ---------------------------------------------------------
-  // BUTTON — RISING EDGE
+  // Read current UI state
   // ---------------------------------------------------------
-  if (!h->button_active && pressed) {
-    h->button_active = true;
-    h->press_start_time = now;
+  sport_ui_state_t ui = sport_manager_get_ui_state(sport_mgr);
 
-    ESP_LOGD(TAG, "Control button PRESS");
+  // ---------------------------------------------------------
+  // SHORT / LONG PRESS LOGIC ONLY VALID IN RUN MODE
+  // ---------------------------------------------------------
+  if (ui == SPORT_UI_STATE_RUNNING) {
+    // ------------------- BUTTON DOWN -----------------------
+    if (!h->button_active && pressed) {
+      h->button_active = true;
+      h->press_start_time = now;
 
-    // Double-tap logic
-    h->press_count++;
-    if (h->press_count == 1) {
-      h->last_press_time = now;
-    } else if (h->press_count == 2) {
-      if (now - h->last_press_time <= DOUBLE_TAP_MS) {
+      ESP_LOGD(TAG, "Button PRESS");
 
-        ESP_LOGD(TAG, "Double-tap → SPORT CHANGE");
+      // Double tap setup
+      h->press_count++;
+      if (h->press_count == 1) {
+        h->last_press_time = now;
+      } else if (h->press_count == 2) {
+        if (now - h->last_press_time <= DOUBLE_TAP_MS) {
 
-        sport_type_t t = sport_manager_get_selected_type(sport_mgr);
-        t = sport_manager_get_next(t);
-        sport_manager_set_sport(sport_mgr, t);
-
-        action = INPUT_ACTION_SPORT_CHANGE;
+          ESP_LOGD(TAG, "Double tap → OPEN SPORT MENU");
+          action = INPUT_ACTION_SPORT_SELECT; // Enter level 1
+        }
+        h->press_count = 0;
       }
+    }
+
+    // Timeout double tap
+    if (h->press_count > 0 && now - h->last_press_time > DOUBLE_TAP_MS) {
+      h->press_count = 0;
+    }
+
+    // ------------------- HOLD RESET -------------------------
+    if (h->button_active && pressed &&
+        (now - h->press_start_time) >= HOLD_RESET_MS) {
+
+      ESP_LOGD(TAG, "Hold → RESET");
+      timer_manager_reset(
+          timer_mgr,
+          sport_manager_get_current_sport(sport_mgr).play_clock_seconds);
+
+      h->button_active = false;
+      h->press_count = 0;
+      return INPUT_ACTION_RESET;
+    }
+
+    // ------------------- SHORT PRESS ------------------------
+    if (h->button_active && !pressed) {
+
+      if (now - h->press_start_time < HOLD_RESET_MS) {
+        ESP_LOGD(TAG, "Short press → START/STOP");
+        action = INPUT_ACTION_START_STOP;
+      }
+
+      h->button_active = false;
       h->press_count = 0;
     }
   }
 
-  // Double-tap timeout
-  if (h->press_count > 0 && now - h->last_press_time > DOUBLE_TAP_MS) {
-    h->press_count = 0;
-  }
-
   // ---------------------------------------------------------
-  // BUTTON — HOLD → RESET (2 seconds)
-  // ---------------------------------------------------------
-  if (h->button_active && pressed &&
-      (now - h->press_start_time) >= HOLD_RESET_MS) {
-
-    ESP_LOGD(TAG, "Button HOLD → RESET");
-
-    sport_config_t s = sport_manager_get_current_sport(sport_mgr);
-    timer_manager_reset(timer_mgr, s.play_clock_seconds);
-
-    action = INPUT_ACTION_RESET;
-
-    h->button_active = false;
-    h->press_count = 0;
-    return action;
-  }
-
-  // ---------------------------------------------------------
-  // BUTTON — RELEASE EDGE → START/STOP
-  // ---------------------------------------------------------
-  if (h->button_active && !pressed) {
-
-    if (now - h->press_start_time < HOLD_RESET_MS) {
-      ESP_LOGD(TAG, "Button short press → START/STOP");
-      action = INPUT_ACTION_START_STOP;
-    }
-
-    h->button_active = false;
-    h->press_count = 0;
-  }
-
-  // ---------------------------------------------------------
-  // ROTARY SCROLL
+  // ROTARY SCROLL BEHAVIOR BASED ON UI STATE
   // ---------------------------------------------------------
   RotaryDirection dir = rotary_encoder_get_direction(&h->rotary_encoder);
 
-  if (dir != ROTARY_NONE) {
-    if (dir != h->last_dir) {
+  if (dir != ROTARY_NONE && dir != h->last_dir) {
 
-      ESP_LOGD(TAG, "Rotary scroll dir=%d", dir);
+    ESP_LOGD(TAG, "Rotary scroll dir=%d", dir);
 
+    // =========================================================
+    // LEVEL 1 → SPORT LIST
+    // =========================================================
+    if (ui == SPORT_UI_STATE_SELECT_SPORT) {
+      ESP_LOGD(TAG, "Rotation in SPORT MENU → change selection");
+      return INPUT_ACTION_SPORT_CHANGE;
+    }
+
+    // =========================================================
+    // LEVEL 2 → VARIANT LIST
+    //   Rotation exits back to SPORT MENU
+    // =========================================================
+    if (ui == SPORT_UI_STATE_SELECT_VARIANT) {
+      ESP_LOGD(TAG, "Rotation in VARIANT MENU → back to SPORT MENU");
+      return INPUT_ACTION_SPORT_CHANGE;
+    }
+
+    // =========================================================
+    // RUN MODE (normal running clock)
+    // =========================================================
+    if (ui == SPORT_UI_STATE_RUNNING) {
+
+      // Button + rotate = time adjust
       if (rotary_encoder_is_button_pressed(&h->rotary_encoder)) {
-        // TIME ADJUST (button held)
-        ESP_LOGD(TAG, "Rotary + Button → TIME ADJUST");
 
+        ESP_LOGD(TAG, "Rotate + button → TIME ADJUST");
         timer_manager_adjust_time(timer_mgr, (dir == ROTARY_CW ? 1 : -1));
-        action = INPUT_ACTION_TIME_ADJUST;
 
-      } else {
-        // SPORT SELECT ONLY
-        ESP_LOGD(TAG, "Rotary scroll → SPORT_SELECT");
-
-        sport_type_t t = sport_manager_get_selected_type(sport_mgr);
-        t = (dir == ROTARY_CW) ? sport_manager_get_next(t)
-                               : sport_manager_get_prev(t);
-
-        sport_manager_set_selected_type(sport_mgr, t);
-        action = INPUT_ACTION_SPORT_SELECT;
+        return INPUT_ACTION_TIME_ADJUST;
       }
 
-      h->last_dir = dir;
+      // Rotate alone → open SPORT MENU
+      ESP_LOGD(TAG, "Rotate in RUN MODE → OPEN SPORT MENU");
+      return INPUT_ACTION_SPORT_CHANGE;
     }
-  } else {
-    h->last_dir = ROTARY_NONE;
   }
 
+  h->last_dir = dir;
+
   // ---------------------------------------------------------
-  // ROTARY BUTTON PRESS → Confirm sport OR quick reset
+  // ROTARY BUTTON PRESS (short click)
   // ---------------------------------------------------------
   if (rotary_encoder_get_button_press(&h->rotary_encoder)) {
 
-    ESP_LOGD(TAG, "Rotary BUTTON PRESS");
-
-    sport_config_t cur = sport_manager_get_current_sport(sport_mgr);
-    sport_type_t sel_type = sport_manager_get_selected_type(sport_mgr);
-    sport_config_t selected = get_sport_config(sel_type);
-
-    bool same_sport = (cur.play_clock_seconds == selected.play_clock_seconds) &&
-                      (strcmp(cur.name, selected.name) == 0);
-
-    if (!same_sport) {
-      ESP_LOGD(TAG, "Sport confirmed: APPLY NEW");
-      sport_manager_set_sport(sport_mgr, sel_type);
-      action = INPUT_ACTION_SPORT_CONFIRM;
-
-    } else {
-      ESP_LOGD(TAG, "Sport confirmed: SAME → RESET");
-      timer_manager_reset(timer_mgr, cur.play_clock_seconds);
-      action = INPUT_ACTION_RESET;
+    // LEVEL 1: select sport → go to Level 2
+    if (ui == SPORT_UI_STATE_SELECT_SPORT) {
+      ESP_LOGD(TAG, "Rotary click → SPORT CONFIRM (enter Level 2)");
+      return INPUT_ACTION_SPORT_CONFIRM;
     }
+
+    // LEVEL 2: select default variant → running mode
+    if (ui == SPORT_UI_STATE_SELECT_VARIANT) {
+      ESP_LOGD(TAG, "Rotary click → CONFIRM SPORT (default variant)");
+      return INPUT_ACTION_SPORT_CONFIRM;
+    }
+
+    // RUN mode rotary click = no action defined
+    ESP_LOGD(TAG, "Rotary button click in RUN MODE (ignored)");
   }
 
   return action;
