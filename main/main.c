@@ -53,6 +53,9 @@ void app_main(void) {
 
   sport_manager_init(&sport_mgr);
 
+  // Force boot state to sport selector (Level 1)
+  sport_manager_enter_sport_menu(&sport_mgr);
+
   sport_config_t initial_sport = sport_manager_get_current_sport(&sport_mgr);
   timer_manager_init(&timer_mgr, initial_sport.play_clock_seconds);
 
@@ -72,9 +75,17 @@ void app_main(void) {
     return;
   }
 
-  ui_manager_update_display(&ui_mgr, &initial_sport,
-                            timer_manager_get_seconds(&timer_mgr));
+  // SHOW SPORT MENU ON BOOT
+  {
+    size_t group_count;
+    const sport_group_t *groups = sport_manager_get_groups(&group_count);
 
+    ui_manager_show_sport_menu(
+        &ui_mgr, groups, group_count,
+        sport_manager_get_current_group_index(&sport_mgr));
+  }
+
+  // Radio startup
   if (!radio_begin(&radio, NRF24_CE_PIN, NRF24_CSN_PIN)) {
     ESP_LOGE(TAG, "Radio failed to initialize");
     return;
@@ -98,9 +109,8 @@ void app_main(void) {
     switch (action) {
 
     case INPUT_ACTION_START_STOP:
-      if (ui_state == SPORT_UI_STATE_RUNNING) {
+      if (ui_state == SPORT_UI_STATE_RUNNING)
         timer_manager_start_stop(&timer_mgr);
-      }
       break;
 
     case INPUT_ACTION_RESET:
@@ -112,19 +122,18 @@ void app_main(void) {
       break;
 
     case INPUT_ACTION_TIME_ADJUST:
-      // Assumes input_handler already adjusted timer_mgr value
       if (ui_state == SPORT_UI_STATE_RUNNING) {
         ui_manager_update_time(&ui_mgr, &current_sport,
                                timer_manager_get_seconds(&timer_mgr));
       }
       break;
 
-    // Typically mapped to long press in RUN mode
+    // ENTER/EXIT MENUS
     case INPUT_ACTION_SPORT_SELECT: {
       ui_state = sport_manager_get_ui_state(&sport_mgr);
 
       if (ui_state == SPORT_UI_STATE_RUNNING) {
-        // Enter Level 1: sport menu
+        // Enter Level 1 menu
         sport_manager_enter_sport_menu(&sport_mgr);
 
         size_t group_count;
@@ -133,29 +142,25 @@ void app_main(void) {
         ui_manager_show_sport_menu(
             &ui_mgr, groups, group_count,
             sport_manager_get_current_group_index(&sport_mgr));
-      } else if (ui_state == SPORT_UI_STATE_SELECT_SPORT) {
-        // Cancel: back to running
+
+      } else { // Exit any menu
         sport_manager_exit_menu(&sport_mgr);
+
         current_sport = sport_manager_get_current_sport(&sport_mgr);
         timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
-        ui_manager_update_display(&ui_mgr, &current_sport,
-                                  timer_manager_get_seconds(&timer_mgr));
-      } else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
-        // Optional: treat SPORT_SELECT as cancel back to running
-        sport_manager_exit_menu(&sport_mgr);
-        current_sport = sport_manager_get_current_sport(&sport_mgr);
-        timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
+
         ui_manager_update_display(&ui_mgr, &current_sport,
                                   timer_manager_get_seconds(&timer_mgr));
       }
     } break;
 
+    // ROTATION
     case INPUT_ACTION_SPORT_CHANGE: {
-      // Mapped to encoder rotation
+
       ui_state = sport_manager_get_ui_state(&sport_mgr);
 
       if (ui_state == SPORT_UI_STATE_RUNNING) {
-        // From RUN: rotation opens Level 1 (sport list)
+
         sport_manager_enter_sport_menu(&sport_mgr);
 
         size_t group_count;
@@ -164,21 +169,20 @@ void app_main(void) {
         ui_manager_show_sport_menu(
             &ui_mgr, groups, group_count,
             sport_manager_get_current_group_index(&sport_mgr));
+
       } else if (ui_state == SPORT_UI_STATE_SELECT_SPORT) {
-        // Level 1: rotate moves between sports
+
         sport_manager_next_sport(&sport_mgr);
 
         size_t group_count;
         const sport_group_t *groups = sport_manager_get_groups(&group_count);
 
-        // FAST PARTIAL UPDATE (NO FULL CLEAN)
         ui_st7735_update_sport_menu_selection(
             &ui_mgr, groups, group_count,
             sport_manager_get_current_group_index(&sport_mgr));
-      }
 
-      else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
-        // Level 2: rotation goes back to Level 1 (SPORT list)
+      } else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
+
         sport_manager_enter_sport_menu(&sport_mgr);
 
         size_t group_count;
@@ -188,13 +192,16 @@ void app_main(void) {
             &ui_mgr, groups, group_count,
             sport_manager_get_current_group_index(&sport_mgr));
       }
+
     } break;
 
+    // CONFIRM
     case INPUT_ACTION_SPORT_CONFIRM: {
+
       ui_state = sport_manager_get_ui_state(&sport_mgr);
 
       if (ui_state == SPORT_UI_STATE_SELECT_SPORT) {
-        // Level 1: short press -> Level 2 (variant list)
+
         sport_manager_enter_variant_menu(&sport_mgr);
         const sport_group_t *group =
             sport_manager_get_current_group(&sport_mgr);
@@ -202,11 +209,13 @@ void app_main(void) {
         ui_manager_show_variant_menu(&ui_mgr, group);
 
       } else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
-        // Level 2: short press -> confirm SPORT (default variant) and RUN
+
         sport_manager_confirm_selection(&sport_mgr);
         current_sport = sport_manager_get_current_sport(&sport_mgr);
 
         timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
+
+        // Enter RUN mode — big digits
         ui_manager_update_display(&ui_mgr, &current_sport,
                                   timer_manager_get_seconds(&timer_mgr));
       }
@@ -216,21 +225,21 @@ void app_main(void) {
       break;
     }
 
-    // Update timer counting down
+    // TIMER RUN LOOP
     timer_manager_update(&timer_mgr);
 
     uint16_t now = timer_manager_get_seconds(&timer_mgr);
-
-    // Only auto-update time display in RUNNING mode
     if (now != last_time &&
         sport_manager_get_ui_state(&sport_mgr) == SPORT_UI_STATE_RUNNING) {
+
       ui_manager_update_time(&ui_mgr, &current_sport, now);
       last_time = now;
     }
 
+    // RADIO TX
     uint32_t t = xTaskGetTickCount() * portTICK_PERIOD_MS;
-
     if (t - main_state.radio_last_transmit >= RADIO_TRANSMIT_INTERVAL_MS) {
+
       uint8_t sec = timer_manager_get_seconds(&timer_mgr);
       color_t c = get_sport_color(current_sport.color_scheme, sec);
 
