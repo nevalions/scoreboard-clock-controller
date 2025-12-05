@@ -82,8 +82,8 @@ idf.py flash monitor
 | NRF24_CSN_PIN | GPIO_NUM_4 | Radio chip select |
 | LCD_I2C_SDA_PIN | GPIO_NUM_21 | LCD I2C SDA |
 | LCD_I2C_SCL_PIN | GPIO_NUM_22 | LCD I2C SCL |
-| ROTARY_CLK_PIN | GPIO_NUM_34 | KY-040 Clock pin (A) - input-only |
-| ROTARY_DT_PIN | GPIO_NUM_35 | KY-040 Data pin (B) - input-only |
+| ROTARY_CLK_PIN | GPIO_NUM_33 | KY-040 Clock pin (A) |
+| ROTARY_DT_PIN | GPIO_NUM_16 | KY-040 Data pin (B) |
 | ROTARY_SW_PIN | GPIO_NUM_32 | KY-040 Switch pin (button) |
 
 ### Radio Module (nRF24L01+)
@@ -110,25 +110,25 @@ idf.py flash monitor
 |-----------|------------|
 | VCC | 3.3V |
 | GND | GND |
-| CS | GPIO13 |
-| DC | GPIO14 |
-| RST | GPIO15 |
-| SDA/MOSI | GPIO23 |
-| SCL/SCK | GPIO18 |
+| CS | GPIO27 |
+| DC | GPIO26 |
+| RST | GPIO25 |
+| SDA/MOSI | GPIO13 |
+| SCL/SCK | GPIO14 |
 
 ### KY-040 Rotary Encoder Module
 | Connection | ESP32 Pin |
 |-----------|------------|
 | VCC | 3.3V |
 | GND | GND |
-| CLK | GPIO34 |
-| DT | GPIO35 |
+| CLK | GPIO33 |
+| DT | GPIO16 |
 | SW | GPIO32 |
 
 **Important Notes**:
-- GPIO34 and GPIO35 are input-only pins without internal pull-ups
+- GPIO33 and GPIO16 are standard GPIO pins with full input/output capabilities
 - KY-040 module typically includes 10kΩ pull-up resistors
-- If using bare encoder, add external 10kΩ pull-ups to CLK and DT lines
+- Internal pull-ups can be enabled for bare encoders
 - Always verify hardware connections match pin definitions
 
 ## Component Architecture
@@ -227,8 +227,8 @@ include/
 ### ST7735 TFT (128x160)
 - **Display Type**: ST7735 1.77" color TFT display
 - **Display Size**: 128 pixels × 160 pixels
-- **Interface**: SPI
-- **Pins**: CS=GPIO13, DC=GPIO14, RST=GPIO15, MOSI=GPIO23, SCK=GPIO18
+- **Interface**: SPI (separate bus from radio)
+- **Pins**: CS=GPIO27, DC=GPIO26, RST=GPIO25, MOSI=GPIO13, SCK=GPIO14
 - **Features**: Color graphics, text rendering, shapes, test patterns
 - **Configuration**: Set `USE_ST7735_DISPLAY` in main.c to switch between displays
 
@@ -268,7 +268,7 @@ To switch between display types, modify the `USE_ST7735_DISPLAY` constant in `ma
 - **Compilation Errors**: Check include paths and component dependencies
 - **Link Failures**: Ensure all sources are properly linked and initialized
 - **SPI Flash Warnings**: Enable `SPI_FLASH_SUPPORT_BOYA_CHIP` in menuconfig for Boya flash chips
-- **GPIO Pull-up Errors**: GPIO34/35 are input-only, require external pull-ups if not using KY-040 module
+- **GPIO Pull-up Errors**: GPIO33/16 support internal pull-ups for bare encoders
 - **Rotary Encoder Not Working**: Verify CLK/DT connections and pull-up resistors
 - **LCD Not Displaying**: Check I2C connections and address (0x27)
 
