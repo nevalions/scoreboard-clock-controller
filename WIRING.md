@@ -55,8 +55,8 @@ Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, disp
 | **KY-040 Rotary Encoder**        |           |                                   |
 | VCC                              | 3.3V      | Power                             |
 | GND                              | GND       | Ground                            |
-| CLK                              | GPIO34    | Clock (A) - Input Only            |
-| DT                               | GPIO35    | Data (B) - Input Only             |
+| CLK                              | GPIO33    | Clock (A)                         |
+| DT                               | GPIO16    | Data (B)                          |
 | SW                               | GPIO32    | Switch/Button                     |
 | **Control Button**               |           |                                   |
 | Button                           | GPIO0     | Control Button (Internal Pull-up) |
@@ -243,14 +243,14 @@ To use ST7735 display, modify `main.c`:
 | ---------- | --------- | ----------- | ------------------ |
 | VCC        | 3.3V      | Power       | 3.3V power supply  |
 | GND        | GND       | Ground      | Common ground      |
-| CLK        | GPIO34    | Clock (A)   | **Input-only pin** |
-| DT         | GPIO35    | Data (B)    | **Input-only pin** |
+| CLK        | GPIO33    | Clock (A)   | Standard GPIO pin  |
+| DT         | GPIO16    | Data (B)    | Standard GPIO pin  |
 | SW         | GPIO32    | Switch      | Button press       |
 
-### ⚠️ Critical Notes for GPIO34/35
+### Notes for GPIO33/16
 
-- **Input-only pins**: Cannot be configured as outputs
-- **No internal pull-ups**: External pull-ups required for bare encoders
+- **Standard GPIO pins**: Full input/output capabilities
+- **Internal pull-ups available**: Can be enabled in software for bare encoders
 - **KY-040 module includes**: 10kΩ pull-up resistors and debouncing
 - **Software pull-ups enabled**: Code enables pull-ups on all 3 pins (GPIO32 gets internal pull-up)
 
@@ -264,8 +264,8 @@ To use ST7735 display, modify `main.c`:
 
 Add these external components:
 
-- **10kΩ pull-up resistors** on CLK and DT to 3.3V
-- **10kΩ pull-up resistor** on SW to 3.3V
+- **10kΩ pull-up resistors** on CLK and DT to 3.3V (optional - can use internal pull-ups)
+- **10kΩ pull-up resistor** on SW to 3.3V (optional - can use internal pull-up)
 - **0.1µF capacitors** on CLK/DT for debouncing (optional)
 
 ### Operation
@@ -429,7 +429,7 @@ idf.py flash monitor
      - Pin 2 (VCC) → 3.3V
      - Pin 1 (GND) → GND
      - Pin 8 (LEDA) → 3.3V (backlight)
-4. **Rotary Encoder**: Connect encoder pins (GPIO34,35,32)
+4. **Rotary Encoder**: Connect encoder pins (GPIO33,16,32)
 5. **Control Button**: Connect button to GPIO0
 6. **Status LED**: Connect LED to GPIO17
 7. **Software Configuration**: Set `USE_ST7735_DISPLAY` in main.c
@@ -465,7 +465,6 @@ idf.py flash monitor
 ⚠️ **Critical Warnings**
 
 - **NEVER connect 5V to nRF24L01+** - will permanently damage
-- **GPIO34/35 are input-only** - cannot be used as outputs
 - **Double-check polarity** before applying power
 - **Use appropriate power supply** - insufficient power causes instability
 

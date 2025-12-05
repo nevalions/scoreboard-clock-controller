@@ -36,8 +36,8 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 | GND           | GND        | Ground              |
 | CE            | GPIO5      | Chip Enable         |
 | CSN           | GPIO4      | Chip Select         |
-| SCK           | GPIO14     | Serial Clock        |
-| MOSI          | GPIO13     | Master Out Slave In |
+| SCK           | GPIO18     | Serial Clock        |
+| MOSI          | GPIO23     | Master Out Slave In |
 | MISO          | GPIO19     | Master In Slave Out |
 
 #### KY-040 Rotary Encoder
@@ -46,8 +46,8 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 | ----------- | ---------- | -------------------------- |
 | VCC         | 3.3V       | Power supply               |
 | GND         | GND        | Ground                     |
-| CLK         | GPIO34     | Clock pin (A) - input-only |
-| DT          | GPIO35     | Data pin (B) - input-only  |
+| CLK         | GPIO33     | Clock pin (A)              |
+| DT          | GPIO16     | Data pin (B)               |
 | SW          | GPIO32     | Switch pin (button)        |
 
 #### Display Options
@@ -70,8 +70,8 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 | CS      | GPIO27     | SPI Chip Select           |
 | DC      | GPIO26     | Data/Command              |
 | RST     | GPIO25     | Reset                     |
-| SDA/MOSI| GPIO13     | SPI Data (shared with radio) |
-| SCL/SCK | GPIO14     | SPI Clock (shared with radio) |
+| SDA/MOSI| GPIO13     | SPI Data (separate from radio) |
+| SCL/SCK | GPIO14     | SPI Clock (separate from radio) |
 
 **Display Selection**: Configure in `main.c` by setting `USE_ST7735_DISPLAY` constant.
 
@@ -84,11 +84,11 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 
 **Important Notes:**
 
-- GPIO34 and GPIO35 are input-only pins without internal pull-ups
+- GPIO33 and GPIO16 are standard GPIO pins with full input/output capabilities
 - KY-040 module typically includes 10kΩ pull-up resistors for CLK/DT lines
 - If using bare rotary encoder, add external 10kΩ pull-ups to CLK and DT
-- ST7735 display shares SPI bus (MOSI/SCK) with nRF24L01+ radio module
-- SPI bus sharing is handled through proper chip select (CS) pin management
+- ST7735 display uses separate SPI bus from nRF24L01+ radio module (no conflicts)
+- Radio uses GPIO18/23 for SPI, ST7735 uses GPIO14/13 for SPI
 
 ## Operation
 
