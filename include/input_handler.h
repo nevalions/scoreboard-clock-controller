@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include "button_driver.h"
@@ -10,13 +9,17 @@
 #include <stdint.h>
 
 typedef enum {
-  INPUT_ACTION_NONE,
+  INPUT_ACTION_NONE = 0,
+
   INPUT_ACTION_START_STOP,
   INPUT_ACTION_RESET,
-  INPUT_ACTION_SPORT_CHANGE,
-  INPUT_ACTION_SPORT_CONFIRM,
-  INPUT_ACTION_SPORT_SELECT,
-  INPUT_ACTION_TIME_ADJUST
+  INPUT_ACTION_TIME_ADJUST,
+
+  INPUT_ACTION_SPORT_SELECT,  // enter / exit menus
+  INPUT_ACTION_SPORT_CONFIRM, // confirm sport / variant
+
+  INPUT_ACTION_SPORT_NEXT, // rotary CW in sport/variant menu
+  INPUT_ACTION_SPORT_PREV  // rotary CCW in sport/variant menu
 } InputAction;
 
 typedef struct {
@@ -31,9 +34,9 @@ typedef struct {
   RotaryDirection last_dir;
 } InputHandler;
 
-void input_handler_init(InputHandler *handler, gpio_num_t control_pin,
+void input_handler_init(InputHandler *h, gpio_num_t control_pin,
                         gpio_num_t clk_pin, gpio_num_t dt_pin,
                         gpio_num_t sw_pin);
 
-InputAction input_handler_update(InputHandler *handler, SportManager *sport_mgr,
+InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
                                  TimerManager *timer_mgr);

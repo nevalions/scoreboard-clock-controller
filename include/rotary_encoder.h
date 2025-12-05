@@ -1,48 +1,46 @@
 #pragma once
 
-#include <stdint.h>
-#include <stdbool.h>
 #include "driver/gpio.h"
+#include <stdbool.h>
+#include <stdint.h>
 
-// KY-040 Rotary Encoder pins
-#define ROTARY_CLK_PIN      GPIO_NUM_34  // Clock pin (A)
-#define ROTARY_DT_PIN       GPIO_NUM_35  // Data pin (B)
-#define ROTARY_SW_PIN       GPIO_NUM_32  // Switch pin (button)
+typedef enum { ROTARY_NONE = 0, ROTARY_CW, ROTARY_CCW } RotaryDirection;
 
-// Rotary encoder timing constants
-#define ROTARY_IDLE_TIMEOUT_MS  80  // Idle timeout before clearing direction
-
-// Rotary encoder directions
-typedef enum {
-    ROTARY_NONE = 0,
-    ROTARY_CW = 1,        // Clockwise
-    ROTARY_CCW = -1       // Counter-clockwise
-} RotaryDirection;
-
-// Rotary encoder structure
 typedef struct {
-    gpio_num_t clk_pin;
-    gpio_num_t dt_pin;
-    gpio_num_t sw_pin;
-    uint8_t last_clk_state;
-    uint8_t last_dt_state;
-    int32_t position;
-    RotaryDirection direction;
-    uint32_t last_change_time;
-    bool button_pressed;
-    bool last_button_state;
-    uint32_t button_press_time;
-    bool last_button_press_state;
-    uint32_t last_clk_read_time;
-    uint32_t last_button_read_time;
+  gpio_num_t clk_pin;
+  gpio_num_t dt_pin;
+  gpio_num_t sw_pin;
+
+  // Raw pin states
+  uint8_t last_clk_state;
+  uint8_t last_dt_state;
+  uint8_t last_button_state;
+
+  // Quadrature combined state (NEW)
+  uint8_t last_encoded_state;
+
+  // Movement info
+  RotaryDirection direction;
+  int32_t position;
+
+  // Button logic
+  bool button_pressed;
+  bool last_button_press_state;
+  uint32_t button_press_time;
+
+  // Debounce timing
+  uint32_t last_change_time;
+
 } RotaryEncoder;
 
-// Function declarations
-bool rotary_encoder_begin(RotaryEncoder* encoder, gpio_num_t clk_pin, gpio_num_t dt_pin, gpio_num_t sw_pin);
-void rotary_encoder_update(RotaryEncoder* encoder);
-RotaryDirection rotary_encoder_get_direction(RotaryEncoder* encoder);
-int32_t rotary_encoder_get_position(RotaryEncoder* encoder);
-void rotary_encoder_reset_position(RotaryEncoder* encoder);
-bool rotary_encoder_is_button_pressed(RotaryEncoder* encoder);
-bool rotary_encoder_get_button_press(RotaryEncoder* encoder);
-bool rotary_encoder_get_button_held(RotaryEncoder* encoder, uint32_t hold_time_ms);
+// API
+bool rotary_encoder_begin(RotaryEncoder *enc, gpio_num_t clk_pin,
+                          gpio_num_t dt_pin, gpio_num_t sw_pin);
+
+void rotary_encoder_update(RotaryEncoder *enc);
+
+RotaryDirection rotary_encoder_get_direction(RotaryEncoder *enc);
+
+bool rotary_encoder_is_button_pressed(RotaryEncoder *enc);
+
+bool rotary_encoder_get_button_press(RotaryEncoder *enc);

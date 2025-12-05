@@ -9,6 +9,9 @@
 
 static const char *TAG = "INPUT_HANDLER";
 
+// UI-level debounce for rotary actions (one logical step per ~120 ms)
+static uint32_t s_last_rotary_action_ms = 0;
+
 // -----------------------------------------------------------------------------
 // INIT
 // -----------------------------------------------------------------------------
@@ -26,7 +29,7 @@ void input_handler_init(InputHandler *h, gpio_num_t control_pin,
 }
 
 // -----------------------------------------------------------------------------
-// UPDATE LOOP — NOW FULLY AWARE OF UI STATE
+// UPDATE LOOP — aware of sport UI state
 // -----------------------------------------------------------------------------
 InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
                                  TimerManager *timer_mgr) {
@@ -45,7 +48,7 @@ InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
   sport_ui_state_t ui = sport_manager_get_ui_state(sport_mgr);
 
   // ---------------------------------------------------------
-  // SHORT / LONG PRESS LOGIC ONLY VALID IN RUN MODE
+  // SHORT / LONG PRESS LOGIC (only valid in RUN mode)
   // ---------------------------------------------------------
   if (ui == SPORT_UI_STATE_RUNNING) {
     // ------------------- BUTTON DOWN -----------------------
@@ -106,44 +109,58 @@ InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
   // ---------------------------------------------------------
   RotaryDirection dir = rotary_encoder_get_direction(&h->rotary_encoder);
 
-  if (dir != ROTARY_NONE && dir != h->last_dir) {
+  if (dir != ROTARY_NONE) {
 
-    ESP_LOGD(TAG, "Rotary scroll dir=%d", dir);
+    // === UI-LEVEL DEBOUNCE: one logical action / 120ms ===
+    if (now - s_last_rotary_action_ms >= 120) {
+      s_last_rotary_action_ms = now;
 
-    // =========================================================
-    // LEVEL 1 → SPORT LIST
-    // =========================================================
-    if (ui == SPORT_UI_STATE_SELECT_SPORT) {
-      ESP_LOGD(TAG, "Rotation in SPORT MENU → change selection");
-      return INPUT_ACTION_SPORT_CHANGE;
-    }
+      ESP_LOGD(TAG, "Rotary scroll dir=%d (%s)", dir,
+               (dir == ROTARY_CW ? "CW" : "CCW"));
 
-    // =========================================================
-    // LEVEL 2 → VARIANT LIST
-    //   Rotation exits back to SPORT MENU
-    // =========================================================
-    if (ui == SPORT_UI_STATE_SELECT_VARIANT) {
-      ESP_LOGD(TAG, "Rotation in VARIANT MENU → back to SPORT MENU");
-      return INPUT_ACTION_SPORT_CHANGE;
-    }
+      // Determine scroll action for menus
+      InputAction scroll_action = (dir == ROTARY_CW) ? INPUT_ACTION_SPORT_NEXT
+                                                     : INPUT_ACTION_SPORT_PREV;
 
-    // =========================================================
-    // RUN MODE (normal running clock)
-    // =========================================================
-    if (ui == SPORT_UI_STATE_RUNNING) {
-
-      // Button + rotate = time adjust
-      if (rotary_encoder_is_button_pressed(&h->rotary_encoder)) {
-
-        ESP_LOGD(TAG, "Rotate + button → TIME ADJUST");
-        timer_manager_adjust_time(timer_mgr, (dir == ROTARY_CW ? 1 : -1));
-
-        return INPUT_ACTION_TIME_ADJUST;
+      // =====================================================
+      // LEVEL 1 → SPORT LIST
+      // =====================================================
+      if (ui == SPORT_UI_STATE_SELECT_SPORT) {
+        ESP_LOGD(TAG, "Rotation in SPORT MENU → %s",
+                 (dir == ROTARY_CW ? "NEXT" : "PREV"));
+        return scroll_action;
       }
 
-      // Rotate alone → open SPORT MENU
-      ESP_LOGD(TAG, "Rotate in RUN MODE → OPEN SPORT MENU");
-      return INPUT_ACTION_SPORT_CHANGE;
+      // =====================================================
+      // LEVEL 2 → VARIANT LIST
+      //  For now: any rotation leaves variant menu
+      // =====================================================
+      if (ui == SPORT_UI_STATE_SELECT_VARIANT) {
+        ESP_LOGD(TAG, "Rotation in VARIANT MENU → back to SPORT MENU");
+        return scroll_action;
+      }
+
+      // =====================================================
+      // RUN MODE (normal running clock)
+      // =====================================================
+      if (ui == SPORT_UI_STATE_RUNNING) {
+
+        // Button + rotate = time adjust (we DO use direction here)
+        if (rotary_encoder_is_button_pressed(&h->rotary_encoder)) {
+
+          ESP_LOGD(TAG, "Rotate + button → TIME ADJUST (%s)",
+                   (dir == ROTARY_CW ? "+1" : "-1"));
+          timer_manager_adjust_time(timer_mgr, (dir == ROTARY_CW ? 1 : -1));
+
+          return INPUT_ACTION_TIME_ADJUST;
+        }
+
+        // Rotate alone → open SPORT MENU
+        ESP_LOGD(TAG, "Rotate in RUN MODE → OPEN SPORT MENU");
+        return INPUT_ACTION_SPORT_SELECT;
+      }
+    } else {
+      // ESP_LOGD(TAG, "Rotary movement ignored (debounce)");
     }
   }
 
@@ -154,19 +171,16 @@ InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
   // ---------------------------------------------------------
   if (rotary_encoder_get_button_press(&h->rotary_encoder)) {
 
-    // LEVEL 1: select sport → go to Level 2
     if (ui == SPORT_UI_STATE_SELECT_SPORT) {
       ESP_LOGD(TAG, "Rotary click → SPORT CONFIRM (enter Level 2)");
       return INPUT_ACTION_SPORT_CONFIRM;
     }
 
-    // LEVEL 2: select default variant → running mode
     if (ui == SPORT_UI_STATE_SELECT_VARIANT) {
       ESP_LOGD(TAG, "Rotary click → CONFIRM SPORT (default variant)");
       return INPUT_ACTION_SPORT_CONFIRM;
     }
 
-    // RUN mode rotary click = no action defined
     ESP_LOGD(TAG, "Rotary button click in RUN MODE (ignored)");
   }
 

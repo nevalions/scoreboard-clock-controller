@@ -16,14 +16,14 @@ Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, disp
 
 - **Display**: 128×160 pixels, 65K colors
 - **Interface**: SPI (separate bus from radio)
-- **Pins**: CS=GPIO12, DC=GPIO14, RST=GPIO15, MOSI=GPIO13, SCK=GPIO2
+- **Pins**: CS=GPIO27, DC=GPIO26, RST=GPIO25, MOSI=GPIO13, SCK=GPIO14
 - **Configuration**: Set `USE_ST7735_DISPLAY = true` in main.c
 
-> **⚠️ CRITICAL PIN CONFLICT WARNING**:
+> **✅ NO PIN CONFLICTS**:
 >
-> - ST7735 TFT shares GPIO18 (SCK) and GPIO23 (MOSI) with nRF24L01+ radio
-> - This creates SPI bus conflicts that can cause communication failures
-> - **Recommended**: Use 1602A I2C LCD (no conflicts) or implement separate SPI buses
+> - ST7735 TFT uses separate SPI pins from nRF24L01+ radio
+> - ST7735: SCK=GPIO14, MOSI=GPIO13 (separate bus)
+> - Radio: SCK=GPIO18, MOSI=GPIO23 (VSPI bus)
 > - Both displays use the same software interface, just change the constant in main.c.
 
 ## Pin Assignments Summary
@@ -46,11 +46,11 @@ Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, disp
 | **Display Option 2: ST7735 TFT** |           |                                   |
 | Pin 2 (VCC)                      | 3.3V      | Power                             |
 | Pin 1 (GND)                      | GND       | Ground                            |
-| Pin 7 (CS)                       | GPIO12    | SPI Chip Select                   |
-| Pin 6 (RS/DC)                    | GPIO14    | Data/Command                      |
-| Pin 5 (RES)                      | GPIO15    | Reset                             |
+| Pin 7 (CS)                       | GPIO27    | SPI Chip Select                   |
+| Pin 6 (RS/DC)                    | GPIO26    | Data/Command                      |
+| Pin 5 (RES)                      | GPIO25    | Reset                             |
 | Pin 4 (SDA/MOSI)                 | GPIO13    | SPI Data (separate from radio)    |
-| Pin 3 (SCK)                      | GPIO2     | SPI Clock (separate from radio)   |
+| Pin 3 (SCK)                      | GPIO14    | SPI Clock (separate from radio)   |
 | Pin 8 (LEDA)                     | 3.3V      | Backlight (optional)              |
 | **KY-040 Rotary Encoder**        |           |                                   |
 | VCC                              | 3.3V      | Power                             |
@@ -156,55 +156,48 @@ Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, disp
 | ---------- | ---------- | --------- | ------------ | ----------------------- |
 | GND        | 1          | GND       | Ground       | Common ground           |
 | VCC        | 2          | 3.3V      | Power        | 3.3V ONLY               |
-| SCK        | 3          | GPIO2     | SPI Clock    | **Separate from radio** |
+| SCK        | 3          | GPIO14    | SPI Clock    | **Separate from radio** |
 | SDA/MOSI   | 4          | GPIO13    | SPI Data     | **Separate from radio** |
-| RES/RST    | 5          | GPIO15    | Reset        | Hardware reset          |
-| RS/DC      | 6          | GPIO14    | Data/Command | Control signal          |
-| CS         | 7          | GPIO12    | Chip Select  | SPI chip select         |
+| RES/RST    | 5          | GPIO25    | Reset        | Hardware reset          |
+| RS/DC      | 6          | GPIO26    | Data/Command | Control signal          |
+| CS         | 7          | GPIO27    | Chip Select  | SPI chip select         |
 | LEDA       | 8          | 3.3V      | Backlight    | Optional backlight      |
 
 ### Physical Pin Layout
 
 ```
-         ST7735 1.77" Module
-         +-----------------+
-      GND |1              8| LEDA  ← 3.3V (backlight)
-      VCC |2              7| CS    ← GPIO12
-      SCK |3              6| RS    ← GPIO14
-      SDA |4              5| RES   ← GPIO15
-         +-----------------+
+          ST7735 1.77" Module
+          +-----------------+
+       GND |1              8| LEDA  ← 3.3V (backlight)
+       VCC |2              7| CS    ← GPIO27
+       SCK |3              6| RS    ← GPIO26
+       SDA |4              5| RES   ← GPIO25
+          +-----------------+
 ```
 
-### ⚠️ CRITICAL PIN CONFLICT WARNING
+### ✅ NO PIN CONFLICTS
 
-**DANGEROUS SPI Bus Sharing:**
+**Separate SPI Buses Implemented:**
 
-- ST7735 shares GPIO18 (SCK) and GPIO23 (MOSI) with nRF24L01+ radio
-- **This creates conflicts** that can cause:
-  - Radio transmission failures
-  - Display corruption or no display
-  - Intermittent system crashes
-  - SPI bus contention errors
+- ST7735 uses GPIO14 (SCK) and GPIO13 (MOSI) - separate from radio
+- nRF24L01+ radio uses GPIO18 (SCK) and GPIO23 (MOSI) - VSPI bus
+- **No conflicts** - both devices work reliably
 
 **Final Pin Assignments (No Conflicts):**
 
 ```
-Radio (SPI3_HOST):     SCK→GPIO18  MOSI→GPIO23  CSN→GPIO4
-ST7735 (SPI2_HOST):    SCK→GPIO2   MOSI→GPIO13  CS→GPIO12
-                        ✓SEPARATE!  ✓SEPARATE!  ✓OK
+Radio (VSPI):           SCK→GPIO18  MOSI→GPIO23  CSN→GPIO4
+ST7735 (HSPI):          SCK→GPIO14  MOSI→GPIO13  CS→GPIO27
+                         ✓SEPARATE!  ✓SEPARATE!  ✓OK
 ```
 
 **Recommendations:**
 
 1. **Use 1602A I2C LCD** - No pin conflicts (recommended)
-2. **Implement separate SPI buses** - Advanced solution
-3. **Use software SPI for ST7735** - Slower but no conflicts
+2. **Use ST7735 TFT** - No pin conflicts (fully supported)
+3. Both displays use the same software interface
 
-**If you proceed with shared SPI:**
-
-- Each device has separate Chip Select (CS) pins
-- ESP32 SPI controller handles bus arbitration
-- **Expect potential reliability issues**
+**Both displays work reliably without conflicts.**
 
 **Display Features:**
 
@@ -388,14 +381,12 @@ ESP32 GPIO0 ---- Button ---- GND
 
 1. **Blank screen**: Check 3.3V power (pins 1&2) and SPI connections
 2. **Garbled graphics**: SPI wiring error (check pins 3&4 for SCK/SDA)
-3. **No display**: Verify CS (pin7), DC (pin6), RST (pin5) connections
+3. **No display**: Verify CS (pin7→GPIO27), DC (pin6→GPIO26), RST (pin5→GPIO25) connections
 4. **Wrong colors**: Check RGB565 color format
-5. **SPI conflicts**: ⚠️ **EXPECTED** due to shared GPIO18/23 with radio
-6. **Radio failures**: ⚠️ **EXPECTED** due to SPI bus contention
-7. **Flickering**: Add decoupling capacitor near display
-8. **Partial display**: Check initialization sequence
-9. **No backlight**: Connect pin 8 (LEDA) to 3.3V
-10. **System instability**: ⚠️ **NORMAL** due to SPI conflicts - consider I2C LCD
+5. **Flickering**: Add decoupling capacitor near display
+6. **Partial display**: Check initialization sequence
+7. **No backlight**: Connect pin 8 (LEDA) to 3.3V
+8. **SPI conflicts**: ✅ **NONE** - separate SPI buses implemented
 
 ### Encoder Issues
 
@@ -430,11 +421,11 @@ idf.py flash monitor
 3. **Display Selection**:
    - **For 1602A LCD**: Connect I2C pins (GPIO21,22)
    - **For ST7735 TFT**: Connect SPI pins using your module's pin numbers:
-     - Pin 7 (CS) → GPIO12
-     - Pin 6 (RS/DC) → GPIO14
-     - Pin 5 (RES) → GPIO15
+     - Pin 7 (CS) → GPIO27
+     - Pin 6 (RS/DC) → GPIO26
+     - Pin 5 (RES) → GPIO25
      - Pin 4 (SDA/MOSI) → GPIO13
-     - Pin 3 (SCK) → GPIO2
+     - Pin 3 (SCK) → GPIO14
      - Pin 2 (VCC) → 3.3V
      - Pin 1 (GND) → GND
      - Pin 8 (LEDA) → 3.3V (backlight)
@@ -449,14 +440,14 @@ idf.py flash monitor
 **SPI BUS SEPARATION (ST7735 Option):**
 
 - **Radio uses**: GPIO18 (SCK), GPIO23 (MOSI), GPIO4 (CSN) ✅
-- **ST7735 uses**: GPIO2 (SCK), GPIO13 (MOSI), GPIO12 (CS) ✅
+- **ST7735 uses**: GPIO14 (SCK), GPIO13 (MOSI), GPIO27 (CS) ✅
 - **No pin conflicts**: Separate SPI buses implemented ✅
 - **Result**: Reliable operation for both devices ✅
 
 **Display Selection:**
 
 - **1602A I2C LCD**: No pin conflicts ✅ (RECOMMENDED)
-- **ST7735 TFT**: SPI pin conflicts ⚠️ (USE WITH CAUTION)
+- **ST7735 TFT**: No pin conflicts ✅ (FULLY SUPPORTED)
 - Only connect ONE display at a time
 - Configure software with matching `USE_ST7735_DISPLAY` setting
 
@@ -465,6 +456,7 @@ idf.py flash monitor
 - Only connect ONE display (1602A OR ST7735)
 - Configure software with matching `USE_ST7735_DISPLAY` setting
 - Both displays use same software interface
+- Both options work reliably without pin conflicts
 
 ---
 

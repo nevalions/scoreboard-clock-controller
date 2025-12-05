@@ -29,6 +29,11 @@ static const char *TAG = "CONTROLLER";
 #define ST7735_SDA_PIN GPIO_NUM_13
 #define ST7735_SCL_PIN GPIO_NUM_14
 
+// Use good digital pins for encoder A/B and button
+#define ROTARY_CLK_PIN GPIO_NUM_33
+#define ROTARY_DT_PIN GPIO_NUM_16
+#define ROTARY_SW_PIN GPIO_NUM_32
+
 #define USE_ST7735_DISPLAY true
 
 #define RADIO_TRANSMIT_INTERVAL_MS 250
@@ -128,7 +133,7 @@ void app_main(void) {
       }
       break;
 
-    // ENTER/EXIT MENUS
+    // ENTER/EXIT MENUS (from RUN or back to RUN)
     case INPUT_ACTION_SPORT_SELECT: {
       ui_state = sport_manager_get_ui_state(&sport_mgr);
 
@@ -154,28 +159,37 @@ void app_main(void) {
       }
     } break;
 
-    // ROTATION
-    case INPUT_ACTION_SPORT_CHANGE: {
+    // ROTATION: NEXT/PREV in menus
+    case INPUT_ACTION_SPORT_NEXT:
+    case INPUT_ACTION_SPORT_PREV: {
 
       ui_state = sport_manager_get_ui_state(&sport_mgr);
 
+      // From RUN mode we shouldn't get these (we send SPORT_SELECT instead),
+      // but guard anyway.
       if (ui_state == SPORT_UI_STATE_RUNNING) {
+        break;
+      }
 
-        sport_manager_enter_sport_menu(&sport_mgr);
+      size_t group_count;
+      const sport_group_t *groups = sport_manager_get_groups(&group_count);
 
-        size_t group_count;
-        const sport_group_t *groups = sport_manager_get_groups(&group_count);
+      if (ui_state == SPORT_UI_STATE_SELECT_SPORT) {
 
-        ui_manager_show_sport_menu(
-            &ui_mgr, groups, group_count,
-            sport_manager_get_current_group_index(&sport_mgr));
+        int current = (int)sport_manager_get_current_group_index(&sport_mgr);
+        int target;
 
-      } else if (ui_state == SPORT_UI_STATE_SELECT_SPORT) {
+        if (action == INPUT_ACTION_SPORT_NEXT) {
+          target = (current + 1) % (int)group_count;
+        } else {
+          target = (current == 0) ? ((int)group_count - 1) : (current - 1);
+        }
 
-        sport_manager_next_sport(&sport_mgr);
-
-        size_t group_count;
-        const sport_group_t *groups = sport_manager_get_groups(&group_count);
+        // We only have "next" in the manager, so loop until we reach target
+        while ((int)sport_manager_get_current_group_index(&sport_mgr) !=
+               target) {
+          sport_manager_next_sport(&sport_mgr);
+        }
 
         ui_st7735_update_sport_menu_selection(
             &ui_mgr, groups, group_count,
@@ -183,10 +197,8 @@ void app_main(void) {
 
       } else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
 
+        // Any rotation in variant menu sends us back to sport menu
         sport_manager_enter_sport_menu(&sport_mgr);
-
-        size_t group_count;
-        const sport_group_t *groups = sport_manager_get_groups(&group_count);
 
         ui_manager_show_sport_menu(
             &ui_mgr, groups, group_count,
@@ -195,7 +207,7 @@ void app_main(void) {
 
     } break;
 
-    // CONFIRM
+    // CONFIRM (rotary button click)
     case INPUT_ACTION_SPORT_CONFIRM: {
 
       ui_state = sport_manager_get_ui_state(&sport_mgr);
