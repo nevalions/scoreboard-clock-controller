@@ -16,6 +16,7 @@ bool button_begin(Button *button, gpio_num_t pin) {
   button->state = BUTTON_RELEASED;
   button->last_state = BUTTON_RELEASED;
   button->last_change_time = 0;
+  button->falling_edge_consumed = false;
 
   // Configure GPIO with pull-up (active-low button)
   gpio_config_t io_conf = {.pin_bit_mask = (1ULL << pin),
@@ -71,12 +72,19 @@ bool button_get_falling_edge(Button *button) {
   bool falling = (button->last_state == BUTTON_RELEASED &&
                   button->state == BUTTON_PRESSED);
 
-  if (falling) {
-    ESP_LOGW("BUTTON_DRIVER", "EDGE: GPIO %d → FALLING (RELEASED→PRESSED)",
+  if (falling && !button->falling_edge_consumed) {
+    button->falling_edge_consumed = true;
+    ESP_LOGW("BUTTON_DRIVER", "EDGE: GPIO %d → FALLING (one-shot)",
              button->pin);
+    return true;
   }
 
-  return falling;
+  // Reset after release
+  if (button->state == BUTTON_RELEASED) {
+    button->falling_edge_consumed = false;
+  }
+
+  return false;
 }
 
 bool button_get_held(Button *button, uint32_t hold_time_ms) {
