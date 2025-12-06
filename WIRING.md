@@ -123,24 +123,24 @@ Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, disp
 
 ### I2C Address Configuration
 
-**Your module detected at: 0x20**
+**Your module configured for: 0x27**
 
 | A2  | A1  | A0  | I2C Address | Binary  |
 | --- | --- | --- | ----------- | ------- |
-| 0   | 0   | 0   | **0x20**    | 0100000 |
+| 0   | 0   | 0   | 0x20        | 0100000 |
 | 0   | 0   | 1   | 0x21        | 0100001 |
 | 0   | 1   | 0   | 0x22        | 0100010 |
-| 0   | 1   | 1   | 0x23        | 0100011 |
+| 0   | 1   | 1   | 0x23        | 0100111 |
 | 1   | 0   | 0   | 0x24        | 0100100 |
 | 1   | 0   | 1   | 0x25        | 0100101 |
 | 1   | 1   | 0   | 0x26        | 0100110 |
-| 1   | 1   | 1   | 0x27        | 0100111 |
+| 1   | 1   | 1   | **0x27**    | 0100111 |
 
-**Note**: Address pins (A0-A2) are jumpers on PCF8574T module. Your scanner found 0x20, so all jumpers should be OFF.
+**Note**: Address pins (A0-A2) are jumpers on PCF8574T module. Code uses 0x27, so all jumpers should be ON.
 
 ### Module Variants
 
-- **PCF8574T**: 0x20-0x27 (SO-16 surface mount - your module)
+- **PCF8574T**: 0x20-0x27 (SO-16 surface mount - your module, configured for 0x27)
 - **PCF8574**: 0x20-0x27 (DIP package)
 - **PCF8574A**: 0x38-0x3F (alternative address range)
 
@@ -295,7 +295,7 @@ ESP32 GPIO0 ---- Button ---- GND
 
 - **Short Press** (< 2 seconds): Toggle start/stop timer
 - **Long Press** (≥ 2 seconds): Reset timer to sport default
-- **Double Tap**: Change sport
+- **Double Tap**: Enter sport selection menu
 
 ---
 
@@ -375,7 +375,7 @@ ESP32 GPIO0 ---- Button ---- GND
 2. **Garbage text**: Wrong I2C address or speed
 3. **No backlight**: Check 3.3V power and jumper settings
 4. **PCF8574T not responding**: Verify address jumpers
-5. **Wrong address**: Your module uses 0x20, not 0x27
+5. **Wrong address**: Your module uses 0x27, not 0x20
 
 **ST7735 TFT Display:**
 
@@ -409,7 +409,7 @@ Use built-in scanner to verify LCD address:
 
 ```bash
 idf.py flash monitor
-# Look for: "Found device at address: 0x20"
+# Look for: "Found device at address: 0x27"
 ```
 
 ---
