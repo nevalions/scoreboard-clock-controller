@@ -96,6 +96,7 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 
 - **🟢 Short Press** (< 2s): Toggle start/stop timing
 - **🔴 Long Press** (≥ 2s): Reset timer to current sport's default time and stop
+- **🔄 Double Tap**: Enter sport selection menu
 
 ### Rotary Encoder Controls
 
