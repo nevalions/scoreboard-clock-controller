@@ -29,10 +29,20 @@ static const char *TAG = "CONTROLLER";
 #define ST7735_SDA_PIN GPIO_NUM_13
 #define ST7735_SCL_PIN GPIO_NUM_14
 
-// Use good digital pins for encoder A/B and button
+// Rotary encoder pins
 #define ROTARY_CLK_PIN GPIO_NUM_33
 #define ROTARY_DT_PIN GPIO_NUM_16
 #define ROTARY_SW_PIN GPIO_NUM_32
+
+// ---------------------------
+// External button pins
+// ---------------------------
+#define BTN_PRESET1_PIN GPIO_NUM_21
+#define BTN_PRESET2_PIN GPIO_NUM_22
+#define BTN_PRESET3_PIN GPIO_NUM_19
+#define BTN_PRESET4_PIN GPIO_NUM_34
+#define BTN_START_PIN GPIO_NUM_35
+#define BTN_RESET_PIN GPIO_NUM_15
 
 #define USE_ST7735_DISPLAY true
 
@@ -58,14 +68,20 @@ void app_main(void) {
 
   sport_manager_init(&sport_mgr);
 
-  // Force boot state to sport selector (Level 1)
+  // Force boot into sport menu (same as before)
   sport_manager_enter_sport_menu(&sport_mgr);
 
   sport_config_t initial_sport = sport_manager_get_current_sport(&sport_mgr);
+
   timer_manager_init(&timer_mgr, initial_sport.play_clock_seconds);
 
+  // ---------------------------
+  // Input handler init
+  // ---------------------------
   input_handler_init(&input_handler, CONTROL_BUTTON_PIN, ROTARY_CLK_PIN,
-                     ROTARY_DT_PIN, ROTARY_SW_PIN);
+                     ROTARY_DT_PIN, ROTARY_SW_PIN, BTN_PRESET1_PIN,
+                     BTN_PRESET2_PIN, BTN_PRESET3_PIN, BTN_PRESET4_PIN,
+                     BTN_START_PIN, BTN_RESET_PIN);
 
 #if USE_ST7735_DISPLAY
   ui_manager_init_st7735(&ui_mgr, ST7735_CS_PIN, ST7735_DC_PIN, ST7735_RST_PIN,
@@ -76,11 +92,11 @@ void app_main(void) {
 #endif
 
   if (!ui_mgr.initialized) {
-    ESP_LOGE(TAG, "Display init failed");
+    ESP_LOGE(TAG, "Display init failed!");
     return;
   }
 
-  // SHOW SPORT MENU ON BOOT
+  // ----------- Show initial sport menu -----------
   {
     size_t group_count;
     const sport_group_t *groups = sport_manager_get_groups(&group_count);
@@ -90,7 +106,9 @@ void app_main(void) {
         sport_manager_get_current_group_index(&sport_mgr));
   }
 
-  // Radio startup
+  // ---------------------------
+  // Radio init
+  // ---------------------------
   if (!radio_begin(&radio, NRF24_CE_PIN, NRF24_CSN_PIN)) {
     ESP_LOGE(TAG, "Radio failed to initialize");
     return;
@@ -100,7 +118,6 @@ void app_main(void) {
   nrf24_write_register(&radio.base, NRF24_REG_CONFIG, RADIO_CONFIG_TX_MODE);
 
   ESP_LOGI(TAG, "Controller initialized");
-
   uint16_t last_time = 65535;
 
   while (1) {
@@ -111,16 +128,25 @@ void app_main(void) {
     sport_ui_state_t ui_state = sport_manager_get_ui_state(&sport_mgr);
     sport_config_t current_sport = sport_manager_get_current_sport(&sport_mgr);
 
+    if (action != INPUT_ACTION_NONE) {
+      ESP_LOGI(TAG, "MAIN: got action=%d in ui_state=%d", action, ui_state);
+    }
+
+    // ===========================================================
+    // INPUT ACTION SWITCH
+    // ===========================================================
     switch (action) {
 
     case INPUT_ACTION_START_STOP:
-      if (ui_state == SPORT_UI_STATE_RUNNING)
+      if (ui_state == SPORT_UI_STATE_RUNNING) {
         timer_manager_start_stop(&timer_mgr);
+      }
       break;
 
     case INPUT_ACTION_RESET:
       if (ui_state == SPORT_UI_STATE_RUNNING) {
         timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
+
         ui_manager_update_display(&ui_mgr, &current_sport,
                                   timer_manager_get_seconds(&timer_mgr));
       }
@@ -133,12 +159,53 @@ void app_main(void) {
       }
       break;
 
-    // ENTER/EXIT MENUS (from RUN or back to RUN)
+    // ===========================================================
+    // PRESET BUTTON HANDLING
+    //   👉 Now works in ANY ui_state, and forces RUN mode
+    // ===========================================================
+    case INPUT_ACTION_PRESET_1:
+    case INPUT_ACTION_PRESET_2:
+    case INPUT_ACTION_PRESET_3:
+    case INPUT_ACTION_PRESET_4: {
+
+      uint8_t idx = action - INPUT_ACTION_PRESET_1;
+
+      ESP_LOGW(TAG, "PRESET %d REQUEST (ui_state=%d)", idx + 1, ui_state);
+
+      const sport_group_t *group = sport_manager_get_current_group(&sport_mgr);
+
+      if (group && idx < group->variant_count) {
+
+        sport_type_t t = group->variants[idx];
+
+        // Switch active sport/variant
+        sport_manager_set_sport(&sport_mgr, t);
+
+        // Ensure we are in RUN mode after preset
+        sport_manager_exit_menu(&sport_mgr);
+        ui_state = sport_manager_get_ui_state(&sport_mgr);
+
+        current_sport = sport_manager_get_current_sport(&sport_mgr);
+
+        timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
+
+        ui_manager_update_display(&ui_mgr, &current_sport,
+                                  timer_manager_get_seconds(&timer_mgr));
+
+      } else {
+        ESP_LOGW(TAG, "Preset index %d not valid for this sport group", idx);
+      }
+
+    } break;
+
+    // ===========================================================
+    // SPORTS MENU ENTER/EXIT
+    // ===========================================================
     case INPUT_ACTION_SPORT_SELECT: {
+
       ui_state = sport_manager_get_ui_state(&sport_mgr);
 
       if (ui_state == SPORT_UI_STATE_RUNNING) {
-        // Enter Level 1 menu
         sport_manager_enter_sport_menu(&sport_mgr);
 
         size_t group_count;
@@ -148,10 +215,10 @@ void app_main(void) {
             &ui_mgr, groups, group_count,
             sport_manager_get_current_group_index(&sport_mgr));
 
-      } else { // Exit any menu
+      } else {
         sport_manager_exit_menu(&sport_mgr);
-
         current_sport = sport_manager_get_current_sport(&sport_mgr);
+
         timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
 
         ui_manager_update_display(&ui_mgr, &current_sport,
@@ -159,45 +226,38 @@ void app_main(void) {
       }
     } break;
 
-    // ROTATION: NEXT/PREV in menus
+    // ===========================================================
+    // ROTATION → NEXT OR PREV SPORT
+    // ===========================================================
     case INPUT_ACTION_SPORT_NEXT:
     case INPUT_ACTION_SPORT_PREV: {
 
       ui_state = sport_manager_get_ui_state(&sport_mgr);
 
-      // From RUN mode we shouldn't get these (we send SPORT_SELECT instead),
-      // but guard anyway.
-      if (ui_state == SPORT_UI_STATE_RUNNING) {
+      // ignore in RUN
+      if (ui_state == SPORT_UI_STATE_RUNNING)
         break;
-      }
 
       size_t group_count;
       const sport_group_t *groups = sport_manager_get_groups(&group_count);
 
       if (ui_state == SPORT_UI_STATE_SELECT_SPORT) {
 
-        int current = (int)sport_manager_get_current_group_index(&sport_mgr);
-        int target;
+        int current = sport_manager_get_current_group_index(&sport_mgr);
+        int target = (action == INPUT_ACTION_SPORT_NEXT)
+                         ? (current + 1) % group_count
+                         : (current == 0 ? group_count - 1 : current - 1);
 
-        if (action == INPUT_ACTION_SPORT_NEXT) {
-          target = (current + 1) % (int)group_count;
-        } else {
-          target = (current == 0) ? ((int)group_count - 1) : (current - 1);
-        }
-
-        // We only have "next" in the manager, so loop until we reach target
-        while ((int)sport_manager_get_current_group_index(&sport_mgr) !=
-               target) {
+        while (sport_manager_get_current_group_index(&sport_mgr) != target)
           sport_manager_next_sport(&sport_mgr);
-        }
 
         ui_st7735_update_sport_menu_selection(
             &ui_mgr, groups, group_count,
             sport_manager_get_current_group_index(&sport_mgr));
+      }
 
-      } else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
+      else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
 
-        // Any rotation in variant menu sends us back to sport menu
         sport_manager_enter_sport_menu(&sport_mgr);
 
         ui_manager_show_sport_menu(
@@ -207,7 +267,9 @@ void app_main(void) {
 
     } break;
 
-    // CONFIRM (rotary button click)
+    // ===========================================================
+    // CONFIRM SELECT
+    // ===========================================================
     case INPUT_ACTION_SPORT_CONFIRM: {
 
       ui_state = sport_manager_get_ui_state(&sport_mgr);
@@ -219,43 +281,52 @@ void app_main(void) {
             sport_manager_get_current_group(&sport_mgr);
 
         ui_manager_show_variant_menu(&ui_mgr, group);
+      }
 
-      } else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
+      else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
 
         sport_manager_confirm_selection(&sport_mgr);
         current_sport = sport_manager_get_current_sport(&sport_mgr);
 
         timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
 
-        // Enter RUN mode — big digits
         ui_manager_update_display(&ui_mgr, &current_sport,
                                   timer_manager_get_seconds(&timer_mgr));
       }
+
     } break;
 
     default:
       break;
     }
 
-    // TIMER RUN LOOP
+    // ===========================================================
+    // TIMER TICK UPDATE
+    // ===========================================================
     timer_manager_update(&timer_mgr);
 
     uint16_t now = timer_manager_get_seconds(&timer_mgr);
+
     if (now != last_time &&
         sport_manager_get_ui_state(&sport_mgr) == SPORT_UI_STATE_RUNNING) {
 
       ui_manager_update_time(&ui_mgr, &current_sport, now);
+
       last_time = now;
     }
 
-    // RADIO TX
+    // ===========================================================
+    // RADIO TRANSMIT
+    // ===========================================================
     uint32_t t = xTaskGetTickCount() * portTICK_PERIOD_MS;
+
     if (t - main_state.radio_last_transmit >= RADIO_TRANSMIT_INTERVAL_MS) {
 
       uint8_t sec = timer_manager_get_seconds(&timer_mgr);
       color_t c = get_sport_color(current_sport.color_scheme, sec);
 
       radio_send_time(&radio, sec, c.r, c.g, c.b, sequence++);
+
       main_state.radio_last_transmit = t;
     }
 

@@ -9,7 +9,7 @@
 
 static const char *TAG = "INPUT_HANDLER";
 
-// UI-level debounce for rotary actions (one logical step per ~120 ms)
+// Rotary debounce
 static uint32_t s_last_rotary_action_ms = 0;
 
 // -----------------------------------------------------------------------------
@@ -17,171 +17,159 @@ static uint32_t s_last_rotary_action_ms = 0;
 // -----------------------------------------------------------------------------
 void input_handler_init(InputHandler *h, gpio_num_t control_pin,
                         gpio_num_t clk_pin, gpio_num_t dt_pin,
-                        gpio_num_t sw_pin) {
+                        gpio_num_t sw_pin, gpio_num_t preset1_pin,
+                        gpio_num_t preset2_pin, gpio_num_t preset3_pin,
+                        gpio_num_t preset4_pin, gpio_num_t start_pin,
+                        gpio_num_t reset_pin) {
+  ESP_LOGI(TAG, "Initializing InputHandler...");
+
+  // internal button
   button_begin(&h->control_button, control_pin);
+
+  // rotary
   rotary_encoder_begin(&h->rotary_encoder, clk_pin, dt_pin, sw_pin);
+
+  // preset buttons
+  button_begin(&h->preset_buttons[0], preset1_pin);
+  button_begin(&h->preset_buttons[1], preset2_pin);
+  button_begin(&h->preset_buttons[2], preset3_pin);
+  button_begin(&h->preset_buttons[3], preset4_pin);
+
+  // start/pause & reset
+  button_begin(&h->start_button, start_pin);
+  button_begin(&h->reset_button, reset_pin);
 
   h->button_active = false;
   h->press_start_time = 0;
   h->last_press_time = 0;
   h->press_count = 0;
   h->last_dir = ROTARY_NONE;
+
+  ESP_LOGI(TAG, "InputHandler initialized");
 }
 
 // -----------------------------------------------------------------------------
-// UPDATE LOOP — aware of sport UI state
+// UPDATE
 // -----------------------------------------------------------------------------
 InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
                                  TimerManager *timer_mgr) {
-
+  // Update ALL hardware buttons
   button_update(&h->control_button);
+  for (int i = 0; i < 4; i++)
+    button_update(&h->preset_buttons[i]);
+  button_update(&h->start_button);
+  button_update(&h->reset_button);
+
   rotary_encoder_update(&h->rotary_encoder);
 
   uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
+
   InputAction action = INPUT_ACTION_NONE;
-
-  bool pressed = button_is_pressed(&h->control_button);
-
-  // ---------------------------------------------------------
-  // Read current UI state
-  // ---------------------------------------------------------
   sport_ui_state_t ui = sport_manager_get_ui_state(sport_mgr);
 
-  // ---------------------------------------------------------
-  // SHORT / LONG PRESS LOGIC (only valid in RUN mode)
-  // ---------------------------------------------------------
+  bool internal_pressed = button_is_pressed(&h->control_button);
+
+  ESP_LOGD(TAG, "UI state in input_handler_update = %d", ui);
+
+  // -------------------------------------------------------------------------
+  // EXTERNAL BUTTONS — always generate actions
+  // (main.c decides whether to act based on ui_state)
+  // -------------------------------------------------------------------------
+  if (button_get_falling_edge(&h->start_button)) {
+    ESP_LOGW(TAG, "START/Pause button pressed!");
+    return INPUT_ACTION_START_STOP;
+  }
+
+  if (button_get_falling_edge(&h->reset_button)) {
+    ESP_LOGW(TAG, "RESET button pressed!");
+    return INPUT_ACTION_RESET;
+  }
+
+  for (int i = 0; i < 4; i++) {
+    if (button_get_falling_edge(&h->preset_buttons[i])) {
+      ESP_LOGW(TAG, "Preset button %d clicked!", i + 1);
+      return INPUT_ACTION_PRESET_1 + i;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // INTERNAL BUTTON: short press, long press, double-tap
+  // (only meaningful in RUN mode, so we keep the guard here)
+  // -------------------------------------------------------------------------
   if (ui == SPORT_UI_STATE_RUNNING) {
-    // ------------------- BUTTON DOWN -----------------------
-    if (!h->button_active && pressed) {
+    if (!h->button_active && internal_pressed) {
       h->button_active = true;
       h->press_start_time = now;
 
-      ESP_LOGD(TAG, "Button PRESS");
-
-      // Double tap setup
       h->press_count++;
-      if (h->press_count == 1) {
-        h->last_press_time = now;
-      } else if (h->press_count == 2) {
-        if (now - h->last_press_time <= DOUBLE_TAP_MS) {
+      h->last_press_time = now;
 
-          ESP_LOGD(TAG, "Double tap → OPEN SPORT MENU");
-          action = INPUT_ACTION_SPORT_SELECT; // Enter level 1
-        }
-        h->press_count = 0;
-      }
+      ESP_LOGI(TAG, "Internal button pressed");
     }
 
-    // Timeout double tap
-    if (h->press_count > 0 && now - h->last_press_time > DOUBLE_TAP_MS) {
-      h->press_count = 0;
-    }
-
-    // ------------------- HOLD RESET -------------------------
-    if (h->button_active && pressed &&
-        (now - h->press_start_time) >= HOLD_RESET_MS) {
-
-      ESP_LOGD(TAG, "Hold → RESET");
-      timer_manager_reset(
-          timer_mgr,
-          sport_manager_get_current_sport(sport_mgr).play_clock_seconds);
-
+    if (internal_pressed && (now - h->press_start_time >= HOLD_RESET_MS)) {
+      ESP_LOGW(TAG, "Internal HOLD → RESET");
       h->button_active = false;
       h->press_count = 0;
       return INPUT_ACTION_RESET;
     }
 
-    // ------------------- SHORT PRESS ------------------------
-    if (h->button_active && !pressed) {
-
+    if (h->button_active && !internal_pressed) {
+      // short press
       if (now - h->press_start_time < HOLD_RESET_MS) {
-        ESP_LOGD(TAG, "Short press → START/STOP");
-        action = INPUT_ACTION_START_STOP;
+        ESP_LOGW(TAG, "Internal short press → start/stop");
+        return INPUT_ACTION_START_STOP;
       }
-
       h->button_active = false;
+      h->press_count = 0;
+    }
+
+    // double tap
+    if (h->press_count == 2 && now - h->last_press_time < DOUBLE_TAP_MS) {
+      h->press_count = 0;
+      ESP_LOGW(TAG, "Internal double tap → open sport menu");
+      return INPUT_ACTION_SPORT_SELECT;
+    }
+
+    if (h->press_count == 1 && now - h->last_press_time > DOUBLE_TAP_MS) {
       h->press_count = 0;
     }
   }
 
-  // ---------------------------------------------------------
-  // ROTARY SCROLL BEHAVIOR BASED ON UI STATE
-  // ---------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // ROTARY SCROLL
+  // -------------------------------------------------------------------------
   RotaryDirection dir = rotary_encoder_get_direction(&h->rotary_encoder);
 
   if (dir != ROTARY_NONE) {
-
-    // === UI-LEVEL DEBOUNCE: one logical action / 120ms ===
     if (now - s_last_rotary_action_ms >= 120) {
+
       s_last_rotary_action_ms = now;
 
-      ESP_LOGD(TAG, "Rotary scroll dir=%d (%s)", dir,
-               (dir == ROTARY_CW ? "CW" : "CCW"));
+      ESP_LOGI(TAG, "Rotary scroll: %s", dir == ROTARY_CW ? "CW" : "CCW");
 
-      // Determine scroll action for menus
-      InputAction scroll_action = (dir == ROTARY_CW) ? INPUT_ACTION_SPORT_NEXT
-                                                     : INPUT_ACTION_SPORT_PREV;
+      InputAction scroll = (dir == ROTARY_CW ? INPUT_ACTION_SPORT_NEXT
+                                             : INPUT_ACTION_SPORT_PREV);
 
-      // =====================================================
-      // LEVEL 1 → SPORT LIST
-      // =====================================================
-      if (ui == SPORT_UI_STATE_SELECT_SPORT) {
-        ESP_LOGD(TAG, "Rotation in SPORT MENU → %s",
-                 (dir == ROTARY_CW ? "NEXT" : "PREV"));
-        return scroll_action;
-      }
-
-      // =====================================================
-      // LEVEL 2 → VARIANT LIST
-      //  For now: any rotation leaves variant menu
-      // =====================================================
-      if (ui == SPORT_UI_STATE_SELECT_VARIANT) {
-        ESP_LOGD(TAG, "Rotation in VARIANT MENU → back to SPORT MENU");
-        return scroll_action;
-      }
-
-      // =====================================================
-      // RUN MODE (normal running clock)
-      // =====================================================
-      if (ui == SPORT_UI_STATE_RUNNING) {
-
-        // Button + rotate = time adjust (we DO use direction here)
-        if (rotary_encoder_is_button_pressed(&h->rotary_encoder)) {
-
-          ESP_LOGD(TAG, "Rotate + button → TIME ADJUST (%s)",
-                   (dir == ROTARY_CW ? "+1" : "-1"));
-          timer_manager_adjust_time(timer_mgr, (dir == ROTARY_CW ? 1 : -1));
-
-          return INPUT_ACTION_TIME_ADJUST;
-        }
-
-        // Rotate alone → open SPORT MENU
-        ESP_LOGD(TAG, "Rotate in RUN MODE → OPEN SPORT MENU");
+      if (ui == SPORT_UI_STATE_SELECT_SPORT)
+        return scroll;
+      if (ui == SPORT_UI_STATE_SELECT_VARIANT)
+        return scroll;
+      if (ui == SPORT_UI_STATE_RUNNING)
         return INPUT_ACTION_SPORT_SELECT;
-      }
-    } else {
-      // ESP_LOGD(TAG, "Rotary movement ignored (debounce)");
     }
   }
 
-  h->last_dir = dir;
-
-  // ---------------------------------------------------------
-  // ROTARY BUTTON PRESS (short click)
-  // ---------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // ROTARY CLICK
+  // -------------------------------------------------------------------------
   if (rotary_encoder_get_button_press(&h->rotary_encoder)) {
+    ESP_LOGI(TAG, "Rotary button click detected");
 
-    if (ui == SPORT_UI_STATE_SELECT_SPORT) {
-      ESP_LOGD(TAG, "Rotary click → SPORT CONFIRM (enter Level 2)");
+    if (ui == SPORT_UI_STATE_SELECT_SPORT)
       return INPUT_ACTION_SPORT_CONFIRM;
-    }
-
-    if (ui == SPORT_UI_STATE_SELECT_VARIANT) {
-      ESP_LOGD(TAG, "Rotary click → CONFIRM SPORT (default variant)");
+    if (ui == SPORT_UI_STATE_SELECT_VARIANT)
       return INPUT_ACTION_SPORT_CONFIRM;
-    }
-
-    ESP_LOGD(TAG, "Rotary button click in RUN MODE (ignored)");
   }
 
   return action;
