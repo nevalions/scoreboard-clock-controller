@@ -146,26 +146,47 @@ static void ui_draw_st7735_variant_bar(UiManager *m, const SportManager *sm) {
     return;
 
   uint8_t active_idx = sport_manager_get_current_variant_index(sm);
+  uint8_t count = group->variant_count;
 
-  int x = 4;
-  int y = UI_ST7735_VARIANT_BAR_Y;
+  // Box and spacing layout
+  const int box_w = 32;   // width of outline box
+  const int box_h = 18;   // height of outline box
+  const int spacing = 12; // space between boxes
+  const int y = UI_ST7735_VARIANT_BAR_Y;
 
-  for (uint8_t i = 0; i < group->variant_count; i++) {
+  // Total width of all boxes + spacing
+  int total_width = (count * box_w) + (spacing * (count - 1));
+
+  // Center horizontally
+  int x = (ST7735_WIDTH - total_width) / 2;
+  if (x < 0)
+    x = 0;
+
+  for (uint8_t i = 0; i < count; i++) {
+
     sport_config_t cfg = get_sport_config(group->variants[i]);
 
+    // Choose highlight color
+    bool is_active = (i == active_idx);
+    uint16_t outline_color = is_active ? ST7735_YELLOW : ST7735_WHITE;
+    uint16_t text_color = is_active ? ST7735_YELLOW : ST7735_WHITE;
+
+    // Box outline
+    st7735_draw_rect_outline(lcd, x, y, box_w, box_h, outline_color);
+
+    // Center text inside box
     char buf[12];
     snprintf(buf, sizeof(buf), "%u", cfg.play_clock_seconds);
 
-    uint16_t color = (i == active_idx) ? UI_ST7735_VARIANT_HIGHLIGHT_COLOR
-                                       : UI_ST7735_VARIANT_NORMAL_COLOR;
+    int text_x = x + (box_w / 2) - (strlen(buf) * 8 / 2);
+    int text_y = y + 4;
 
-    st7735_print(lcd, x, y, color, ST7735_BLACK, 1, buf);
+    if (text_x < 0)
+      text_x = 0;
 
-    x += UI_ST7735_VARIANT_BAR_SPACING;
+    st7735_print(lcd, text_x, text_y, text_color, ST7735_BLACK, 1, buf);
 
-    // Safety: avoid drawing off-screen
-    if (x > (ST7735_WIDTH - 20))
-      break;
+    x += box_w + spacing;
   }
 }
 
