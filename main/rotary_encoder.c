@@ -27,6 +27,8 @@ bool rotary_encoder_begin(RotaryEncoder *enc, gpio_num_t clk_pin,
 
   enc->last_change_time = 0;
 
+  ESP_LOGW("ROTARY", "Init encoder: CLK=%d DT=%d SW=%d", clk_pin, dt_pin,
+           sw_pin);
   // ------------------------------------------------------------------------
   // Configure CLK + DT inputs (KY-040 already has hardware pull-ups)
   // ------------------------------------------------------------------------

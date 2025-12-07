@@ -6,30 +6,34 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-static const char *TAG = "BUTTON_DRIVER";
+bool button_begin(Button *btn, gpio_num_t pin) {
+  btn->pin = pin;
 
-bool button_begin(Button *button, gpio_num_t pin) {
-  if (!button)
-    return false;
+  gpio_config_t io_conf;
+  memset(&io_conf, 0, sizeof(io_conf)); // IMPORTANT FIX
 
-  button->pin = pin;
-  button->state = BUTTON_RELEASED;
-  button->last_state = BUTTON_RELEASED;
-  button->last_change_time = 0;
-  button->falling_edge_consumed = false;
+  io_conf.pin_bit_mask = (1ULL << pin);
+  io_conf.mode = GPIO_MODE_INPUT;
+  io_conf.intr_type = GPIO_INTR_DISABLE;
+  io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
 
-  // Configure GPIO with pull-up (active-low button)
-  gpio_config_t io_conf = {.pin_bit_mask = (1ULL << pin),
-                           .mode = GPIO_MODE_INPUT,
-                           .pull_up_en = GPIO_PULLUP_ENABLE,
-                           .pull_down_en = GPIO_PULLDOWN_DISABLE,
-                           .intr_type = GPIO_INTR_DISABLE};
-  gpio_config(&io_conf);
+  // Enable internal pull-up only if the pin supports it
+  if (pin < 34) {
+    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+  }
 
-  button->current_level = gpio_get_level(pin);
+  ESP_ERROR_CHECK(gpio_config(&io_conf));
 
-  ESP_LOGI(TAG, "Button initialized on GPIO %d (initial level=%d)", pin,
-           button->current_level);
+  btn->current_level = gpio_get_level(pin);
+  btn->state = BUTTON_RELEASED;
+  btn->last_state = BUTTON_RELEASED;
+  btn->last_change_time = 0;
+  btn->falling_edge_consumed = false;
+
+  ESP_LOGI("BUTTON_DRIVER", "Button initialized on GPIO %d (initial=%d, PU=%d)",
+           pin, btn->current_level, io_conf.pull_up_en);
+
   return true;
 }
 
