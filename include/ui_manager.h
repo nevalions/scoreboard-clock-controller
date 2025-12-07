@@ -19,23 +19,26 @@ typedef struct {
   bool initialized;
 } UiManager;
 
+// Initialize LCD
 void ui_manager_init_lcd_i2c(UiManager *manager, uint8_t i2c_addr,
                              gpio_num_t sda_pin, gpio_num_t scl_pin);
 
+// Initialize ST7735
 void ui_manager_init_st7735(UiManager *manager, gpio_num_t cs_pin,
                             gpio_num_t dc_pin, gpio_num_t rst_pin,
                             gpio_num_t mosi_pin, gpio_num_t sck_pin);
 
-// Running mode: header + big running clock + all sport variants
+// Running-time update: big clock + variant bar
 void ui_manager_update_time(UiManager *manager, const sport_config_t *sport,
                             uint16_t seconds,
                             const SportManager *sport_manager);
 
+// Full redraw (state change)
 void ui_manager_update_display(UiManager *manager, const sport_config_t *sport,
                                uint16_t seconds,
                                const SportManager *sport_manager);
 
-// Sport selection menu (list of sports + ASCII logo)
+// Sport selection menu
 void ui_manager_show_sport_menu(UiManager *manager, const sport_group_t *groups,
                                 size_t group_count, uint8_t selected_group_idx);
 
@@ -44,7 +47,7 @@ void ui_st7735_update_sport_menu_selection(UiManager *manager,
                                            size_t group_count,
                                            uint8_t selected_group_idx);
 
-// Variant selection menu (for chosen sport, list of playclock values)
+// Variant selection list
 void ui_manager_show_variant_menu(UiManager *manager,
                                   const sport_group_t *group);
 
