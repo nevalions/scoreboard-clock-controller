@@ -171,7 +171,27 @@ idf.py flash monitor
 - **Input Handler**: Processes raw button and encoder events into high-level actions
 - **Sport Manager**: Maintains current sport state and handles sport transitions
 - **Timer Manager**: Manages countdown state and provides timing services
-- **UI Manager**: Renders display based on sport and timer state
+- **UI Manager**: Public API forwarding and display type coordination
+  - Clean interface that forwards to specialized UI modules
+  - Display type detection and initialization (I2C LCD vs ST7735)
+  - Main screen display coordination
+  - Sport and variant menu management
+  - Time update optimization for different display types
+
+### UI Modular Architecture
+- **ui/ui_helpers.h/c**: Text formatting, centering, and layout helpers
+- **ui/ui_st7735_variant_bar.h/c**: Adaptive variant bar with 1-3 boxes, 4 boxes, or 5+ text layout
+- **ui/ui_st7735_main.h/c**: ST7735 main screen rendering with header, underline, variant bar, and timer
+- **ui/ui_st7735_menus.h/c**: ST7735 sport selection and variant menu rendering
+- **ui/ui_lcd_i2c_main.h/c**: I2C LCD main screen with sport name and time display
+- **ui/ui_lcd_i2c_menus.h/c**: I2C LCD sport and variant menu rendering
+
+Benefits:
+- **Maintainability**: Each module 100-150 lines with single responsibility
+- **Extensibility**: Easy to add new display types or menu styles
+- **Testability**: Modules can be unit tested independently
+- **Code Reuse**: Helper functions shared across display types
+- **Debugging**: Issues isolated to specific modules
 - **Main Loop**: Coordinates module updates and handles timing intervals
 
 ### Modular Architecture Principles

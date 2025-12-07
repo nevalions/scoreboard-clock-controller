@@ -256,7 +256,12 @@ The controller features a clean modular architecture with clear separation of co
 - **Input Handler**: Centralizes all user input processing from button and rotary encoder events into unified actions
 - **Sport Manager**: Manages sport selection, configuration state, and sport transitions
 - **Timer Manager**: Handles countdown logic, timer state management, and timing services
-- **UI Manager**: Controls LCD display rendering and user interface updates based on system state
+- **UI Manager**: Public API forwarding and display type coordination
+  - Clean interface that forwards to specialized UI modules
+  - Display type detection and initialization (I2C LCD vs ST7735)
+  - Main screen display coordination
+  - Sport and variant menu management
+  - Time update optimization for different display types
 
 #### Hardware Interface Modules
 - **Button Driver**: Low-level button press detection, debouncing, and duration tracking
