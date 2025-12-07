@@ -3,9 +3,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "../../sport_selector/include/sport_selector.h"
 #include "lcd_i2c.h"
 #include "sport_manager.h"
+#include "sport_selector.h"
 #include "st7735_lcd.h"
 
 typedef enum { DISPLAY_TYPE_LCD_I2C, DISPLAY_TYPE_ST7735 } display_type_t;

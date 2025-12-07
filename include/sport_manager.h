@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../../sport_selector/include/sport_selector.h"
+#include "sport_selector.h"
 
 // -----------------------------------------------------------------------------
 // UI state for sport selection
