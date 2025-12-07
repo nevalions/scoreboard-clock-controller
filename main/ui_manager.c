@@ -23,8 +23,15 @@ static const char *TAG = "UI_MGR";
 #define UI_ST7735_MENU_LIST_Y 60
 #define UI_ST7735_LINE_SPACING 10
 
+// Variant menu layout (list view)
 #define UI_ST7735_VARIANT_LIST_Y 70
-#define UI_ST7735_VARIANT_SPACING 10
+#define UI_ST7735_VARIANT_SPACING 22
+
+// Variant bar on running screen
+#define UI_ST7735_VARIANT_BAR_Y 28
+#define UI_ST7735_VARIANT_BAR_SPACING 30
+#define UI_ST7735_VARIANT_HIGHLIGHT_COLOR ST7735_YELLOW
+#define UI_ST7735_VARIANT_NORMAL_COLOR ST7735_WHITE
 
 // -----------------------------------------------------------------------------
 // Format seconds
@@ -41,9 +48,7 @@ static void format_seconds(char *out, size_t size, uint16_t sec) {
 // -----------------------------------------------------------------------------
 static void st7735_print_center(St7735Lcd *lcd, int y, uint16_t fg, uint16_t bg,
                                 uint8_t size, const char *text) {
-  if (!lcd || !lcd->initialized)
-    return;
-  if (!text)
+  if (!lcd || !lcd->initialized || !text)
     return;
 
   int len = strlen(text);
@@ -131,10 +136,44 @@ static void ui_draw_st7735_frame(UiManager *m) {
 }
 
 // -----------------------------------------------------------------------------
-// RUNNING SCREEN (x4 big digits)
+// RUNNING SCREEN – VARIANT BAR (all timer variants)
+// -----------------------------------------------------------------------------
+static void ui_draw_st7735_variant_bar(UiManager *m, const SportManager *sm) {
+  St7735Lcd *lcd = &m->st7735;
+
+  const sport_group_t *group = sport_manager_get_current_group(sm);
+  if (!group || group->variant_count == 0)
+    return;
+
+  uint8_t active_idx = sport_manager_get_current_variant_index(sm);
+
+  int x = 4;
+  int y = UI_ST7735_VARIANT_BAR_Y;
+
+  for (uint8_t i = 0; i < group->variant_count; i++) {
+    sport_config_t cfg = get_sport_config(group->variants[i]);
+
+    char buf[12];
+    snprintf(buf, sizeof(buf), "%u", cfg.play_clock_seconds);
+
+    uint16_t color = (i == active_idx) ? UI_ST7735_VARIANT_HIGHLIGHT_COLOR
+                                       : UI_ST7735_VARIANT_NORMAL_COLOR;
+
+    st7735_print(lcd, x, y, color, ST7735_BLACK, 1, buf);
+
+    x += UI_ST7735_VARIANT_BAR_SPACING;
+
+    // Safety: avoid drawing off-screen
+    if (x > (ST7735_WIDTH - 20))
+      break;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// RUNNING SCREEN (ST7735)
 // -----------------------------------------------------------------------------
 static void ui_draw_st7735_main(UiManager *m, const sport_config_t *sport,
-                                uint16_t sec) {
+                                uint16_t sec, const SportManager *sm) {
 
   char timebuf[8];
   format_seconds(timebuf, sizeof(timebuf), sec);
@@ -144,16 +183,19 @@ static void ui_draw_st7735_main(UiManager *m, const sport_config_t *sport,
   st7735_clear(lcd, ST7735_BLACK);
   ui_draw_st7735_frame(m);
 
-  // Sport header
+  // Header — sport name
   st7735_print_center(lcd, UI_ST7735_HEADER_Y, ST7735_WHITE, ST7735_BLACK, 1,
                       sport->name);
 
-  // Big digits
-  st7735_print_center(lcd, 60, ST7735_WHITE, ST7735_BLACK, 4, timebuf);
+  // Variant bar (ALL playclock variants, with active highlighted)
+  ui_draw_st7735_variant_bar(m, sm);
+
+  // Big timer
+  st7735_print_center(lcd, 80, ST7735_WHITE, ST7735_BLACK, 4, timebuf);
 }
 
 // -----------------------------------------------------------------------------
-// SPORT MENU (Level 1)
+// SPORT MENU (Level 1) – ST7735
 // -----------------------------------------------------------------------------
 static void ui_draw_st7735_sport_menu(UiManager *m, const sport_group_t *groups,
                                       size_t group_count,
@@ -183,7 +225,7 @@ static void ui_draw_st7735_sport_menu(UiManager *m, const sport_group_t *groups,
 }
 
 // -----------------------------------------------------------------------------
-// VARIANT MENU (Level 2)
+// VARIANT MENU (Level 2) – ST7735
 // -----------------------------------------------------------------------------
 static void ui_draw_st7735_variant_menu(UiManager *m,
                                         const sport_group_t *group) {
@@ -214,7 +256,7 @@ static void ui_draw_st7735_variant_menu(UiManager *m,
 
     st7735_print_center(lcd, y, ST7735_WHITE, ST7735_BLACK, 2, line);
 
-    y += 22;
+    y += UI_ST7735_VARIANT_SPACING;
   }
 }
 
@@ -222,33 +264,32 @@ static void ui_draw_st7735_variant_menu(UiManager *m,
 // FAST TIMER UPDATE (running mode)
 // -----------------------------------------------------------------------------
 static void ui_st7735_update_time(UiManager *m, const sport_config_t *sport,
-                                  uint16_t sec) {
-
+                                  uint16_t sec, const SportManager *sm) {
   (void)sport;
+  (void)sm; // currently variant bar is static; only digits update
 
   char timebuf[8];
   format_seconds(timebuf, sizeof(timebuf), sec);
 
   St7735Lcd *lcd = &m->st7735;
 
-  // Clear ONLY inside the frame — no border overwrite
-  st7735_draw_rect(lcd, 2, 25, // safe region
-                   ST7735_WIDTH - 4, 110, ST7735_BLACK);
+  // Only clear the timer zone (no flicker, variant bar stays)
+  st7735_draw_rect(lcd, 2, 55, ST7735_WIDTH - 4, 100, ST7735_BLACK);
 
-  // Draw updated big timer
-  st7735_print_center(lcd, 60, ST7735_WHITE, ST7735_BLACK, 4, timebuf);
+  // Redraw only the timer
+  st7735_print_center(lcd, 80, ST7735_WHITE, ST7735_BLACK, 4, timebuf);
 }
 
 // -----------------------------------------------------------------------------
 // PUBLIC API
 // -----------------------------------------------------------------------------
 void ui_manager_update_time(UiManager *m, const sport_config_t *sport,
-                            uint16_t sec) {
+                            uint16_t sec, const SportManager *sm) {
   if (!m || !m->initialized)
     return;
 
   if (m->type == DISPLAY_TYPE_ST7735)
-    ui_st7735_update_time(m, sport, sec);
+    ui_st7735_update_time(m, sport, sec, sm);
   else
     ui_draw_i2c_main(m, sport, sec);
 }
@@ -287,14 +328,14 @@ void ui_manager_init_st7735(UiManager *m, gpio_num_t cs, gpio_num_t dc,
 }
 
 void ui_manager_update_display(UiManager *m, const sport_config_t *sport,
-                               uint16_t sec) {
+                               uint16_t sec, const SportManager *sm) {
   if (!m || !m->initialized)
     return;
 
   if (m->type == DISPLAY_TYPE_LCD_I2C)
     ui_draw_i2c_main(m, sport, sec);
   else
-    ui_draw_st7735_main(m, sport, sec);
+    ui_draw_st7735_main(m, sport, sec, sm);
 }
 
 void ui_manager_show_sport_menu(UiManager *m, const sport_group_t *groups,
@@ -328,6 +369,8 @@ void ui_st7735_update_sport_menu_selection(UiManager *m,
   if (!m || !m->initialized)
     return;
 
+  (void)groups; // we only redraw the ">" marker, not full names
+
   St7735Lcd *lcd = &m->st7735;
   int y = UI_ST7735_MENU_LIST_Y;
 
@@ -335,6 +378,7 @@ void ui_st7735_update_sport_menu_selection(UiManager *m,
 
     char prefix = (i == selected_group_idx) ? '>' : ' ';
 
+    // Clear small prefix region
     st7735_draw_rect(lcd, UI_ST7735_MARGIN + 2, y, 10, 10, ST7735_BLACK);
 
     char pre[3] = {prefix, '\0'};

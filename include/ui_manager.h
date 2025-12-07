@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <stdbool.h>
@@ -27,12 +26,14 @@ void ui_manager_init_st7735(UiManager *manager, gpio_num_t cs_pin,
                             gpio_num_t dc_pin, gpio_num_t rst_pin,
                             gpio_num_t mosi_pin, gpio_num_t sck_pin);
 
-// Running mode: only header + big running clock
+// Running mode: header + big running clock + all sport variants
 void ui_manager_update_time(UiManager *manager, const sport_config_t *sport,
-                            uint16_t seconds);
+                            uint16_t seconds,
+                            const SportManager *sport_manager);
 
 void ui_manager_update_display(UiManager *manager, const sport_config_t *sport,
-                               uint16_t seconds);
+                               uint16_t seconds,
+                               const SportManager *sport_manager);
 
 // Sport selection menu (list of sports + ASCII logo)
 void ui_manager_show_sport_menu(UiManager *manager, const sport_group_t *groups,

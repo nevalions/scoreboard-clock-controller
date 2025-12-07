@@ -159,11 +159,12 @@ void app_main(void) {
     case INPUT_ACTION_RESET:
       if (ui_state == SPORT_UI_STATE_RUNNING) {
 
-        timer_manager_stop(&timer_mgr); // FIXED
+        timer_manager_stop(&timer_mgr);
         timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
 
         ui_manager_update_display(&ui_mgr, &current_sport,
-                                  timer_manager_get_seconds(&timer_mgr));
+                                  timer_manager_get_seconds(&timer_mgr),
+                                  &sport_mgr);
       }
       break;
 
@@ -173,7 +174,8 @@ void app_main(void) {
     case INPUT_ACTION_TIME_ADJUST:
       if (ui_state == SPORT_UI_STATE_RUNNING) {
         ui_manager_update_time(&ui_mgr, &current_sport,
-                               timer_manager_get_seconds(&timer_mgr));
+                               timer_manager_get_seconds(&timer_mgr),
+                               &sport_mgr);
       }
       break;
 
@@ -192,7 +194,7 @@ void app_main(void) {
 
       if (group && idx < group->variant_count) {
 
-        timer_manager_stop(&timer_mgr); // FIX
+        timer_manager_stop(&timer_mgr);
 
         sport_type_t t = group->variants[idx];
         sport_manager_set_sport(&sport_mgr, t);
@@ -203,7 +205,8 @@ void app_main(void) {
         timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
 
         ui_manager_update_display(&ui_mgr, &current_sport,
-                                  timer_manager_get_seconds(&timer_mgr));
+                                  timer_manager_get_seconds(&timer_mgr),
+                                  &sport_mgr);
       }
 
     } break;
@@ -217,7 +220,7 @@ void app_main(void) {
 
       if (ui_state == SPORT_UI_STATE_RUNNING) {
 
-        timer_manager_stop(&timer_mgr); // FIX
+        timer_manager_stop(&timer_mgr);
 
         sport_manager_enter_sport_menu(&sport_mgr);
 
@@ -233,11 +236,12 @@ void app_main(void) {
         sport_manager_exit_menu(&sport_mgr);
         current_sport = sport_manager_get_current_sport(&sport_mgr);
 
-        timer_manager_stop(&timer_mgr); // FIX
+        timer_manager_stop(&timer_mgr);
         timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
 
         ui_manager_update_display(&ui_mgr, &current_sport,
-                                  timer_manager_get_seconds(&timer_mgr));
+                                  timer_manager_get_seconds(&timer_mgr),
+                                  &sport_mgr);
       }
       break;
 
@@ -290,7 +294,7 @@ void app_main(void) {
 
       else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
 
-        timer_manager_stop(&timer_mgr); // FIX
+        timer_manager_stop(&timer_mgr);
 
         sport_manager_confirm_selection(&sport_mgr);
         current_sport = sport_manager_get_current_sport(&sport_mgr);
@@ -298,7 +302,8 @@ void app_main(void) {
         timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
 
         ui_manager_update_display(&ui_mgr, &current_sport,
-                                  timer_manager_get_seconds(&timer_mgr));
+                                  timer_manager_get_seconds(&timer_mgr),
+                                  &sport_mgr);
       }
       break;
 
@@ -316,7 +321,7 @@ void app_main(void) {
     if (now != last_time &&
         sport_manager_get_ui_state(&sport_mgr) == SPORT_UI_STATE_RUNNING) {
 
-      ui_manager_update_time(&ui_mgr, &current_sport, now);
+      ui_manager_update_time(&ui_mgr, &current_sport, now, &sport_mgr);
       last_time = now;
     }
 
