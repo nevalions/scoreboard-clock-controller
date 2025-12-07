@@ -183,8 +183,9 @@ Use `idf.py menuconfig` to access:
 ### Compatible Receivers
 
 - Works with play_clock scoreboard displays
-- Receiver must handle 3-byte time-only protocol format
+- Receiver must handle 6-byte time + color protocol format
 - Time format: Sport-specific timing (0-999 seconds)
+- Color format: RGB values (0-255 each) for sport-specific display colors
 - Special value 0xFF indicates null/clear display signal
 
 ### Expected Behavior
@@ -198,12 +199,15 @@ Use `idf.py menuconfig` to access:
 
 ### Protocol Details
 
-#### Time Packet Format (3 bytes)
+#### Time + Color Packet Format (6 bytes)
 
 ```
-[0] Time High: (seconds >> 8) & 0xFF
-[1] Time Low:  seconds & 0xFF
-[2] Sequence:   0-255 (auto-wrapping counter)
+[0] Time High:   (seconds >> 8) & 0xFF
+[1] Time Low:    seconds & 0xFF
+[2] Red Color:   Sport-specific red value (0-255)
+[3] Green Color: Sport-specific green value (0-255)
+[4] Blue Color:  Sport-specific blue value (0-255)
+[5] Sequence:    0-255 (auto-wrapping counter)
 ```
 
 #### Radio Configuration
