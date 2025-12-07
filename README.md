@@ -153,8 +153,8 @@ This controller manages timing and sport selection for a wireless scoreboard sys
 ### Build and Flash
 
 ```bash
-# Clone repository with submodules
-git clone --recursive <repository-url>
+# Clone repository
+git clone <repository-url>
 cd scoreboard_clock/controller
 
 # Build project
@@ -297,6 +297,8 @@ controller/
 │   ├── radio_comm.c        # nRF24L01+ radio interface and link quality monitoring
 │   ├── lcd_i2c.c           # 1602A LCD driver with I2C/PCF8574 interface
 │   ├── st7735_lcd.c        # ST7735 TFT display driver with SPI interface
+│   ├── sport_selector.c    # Sport configuration management and selection logic
+│   ├── colors.c            # Color definitions for sport variants and UI
 │   └── font8x8.c           # Font data for ST7735 text rendering
 ├── include/                # Header files with module interfaces
 │   ├── input_handler.h     # Input processing interface and data structures
@@ -307,9 +309,10 @@ controller/
 │   ├── rotary_encoder.h    # Rotary encoder interface and direction enums
 │   ├── radio_comm.h        # Radio interface and protocol definitions
 │   ├── lcd_i2c.h           # LCD interface and I2C communication constants
-│   └── st7735_lcd.h        # ST7735 TFT interface and SPI communication constants
+│   ├── st7735_lcd.h        # ST7735 TFT interface and SPI communication constants
+│   ├── sport_selector.h    # Sport selector interface and configuration structures
+│   └── colors.h            # Color definitions and constants for UI elements
 ├── radio-common/           # Shared radio functionality (submodule)
-├── sport-selector/         # Sport configuration management (submodule)
 ├── CMakeLists.txt          # Root build configuration
 ├── main/CMakeLists.txt     # Main component build configuration
 ├── sdkconfig.defaults      # Default ESP-IDF configuration settings
@@ -321,8 +324,9 @@ controller/
 #### Module Organization
 - **Core Modules** (`input_handler`, `sport_manager`, `timer_manager`, `ui_manager`): Handle application logic and state
 - **Driver Modules** (`button_driver`, `rotary_encoder`, `radio_comm`, `lcd_i2c`, `st7735_lcd`): Interface with hardware components
+- **Sport Modules** (`sport_selector`, `colors`): Sport configuration management and UI color definitions
 - **Interface Headers**: Define clear contracts between modules with well-structured data types
-- **Submodules**: Reusable components shared across projects (`radio-common`, `sport-selector`)
+- **Submodules**: Reusable components shared across projects (`radio-common`)
 
 ### Build Commands
 
@@ -339,7 +343,7 @@ idf.py flash monitor
 # Configuration menu
 idf.py menuconfig
 
-# Clean all (including submodules)
+# Clean all
 idf.py fullclean
 ```
 

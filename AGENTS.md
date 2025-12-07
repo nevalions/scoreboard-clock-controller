@@ -145,7 +145,8 @@ idf.py flash monitor
 - **lcd_i2c.c**: 1602A LCD driver with I2C/PCF8574 interface
 - **st7735_lcd.c**: ST7735 128x160 TFT LCD driver with SPI interface
 - **radio-common/**: Shared radio functionality (submodule)
-- **sport_selector/**: Sport configuration management (submodule)
+- **sport_selector.c**: Sport configuration management (local component)
+- **colors.c**: Color definitions for sport variants and UI elements
 
 ### Data Flow
 1. Button driver detects press events and duration
@@ -188,7 +189,7 @@ idf.py flash monitor
 - **Target**: ESP32
 - **Framework**: ESP-IDF v6.1
 - **Dependencies**: driver, esp_driver_gpio, esp_driver_spi, esp_driver_i2c
-- **Extra Components**: ../radio-common, ../sport-selector
+- **Extra Components**: ../radio-common
 
 ### Component Dependencies
 ```
@@ -202,6 +203,8 @@ main/
 ├── button_driver.c  # Button handling and debouncing
 ├── rotary_encoder.c # Rotary encoder handling and direction detection
 ├── radio_comm.c     # Radio interface and link monitoring
+├── sport_selector.c # Sport configuration management
+├── colors.c         # Color definitions for UI
 └── lcd_i2c.c        # LCD driver and display management
 
 include/
@@ -212,6 +215,8 @@ include/
 ├── button_driver.h  # Button interface and structures
 ├── rotary_encoder.h # Rotary encoder interface and structures
 ├── radio_comm.h     # Radio interface and structures
+├── sport_selector.h # Sport selector interface and structures
+├── colors.h         # Color definitions and constants
 └── lcd_i2c.h        # LCD interface and structures
 ```
 
