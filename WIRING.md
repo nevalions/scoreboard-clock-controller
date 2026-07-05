@@ -300,8 +300,8 @@ Driven by a 50% success-rate threshold (`RADIO_LINK_SUCCESS_RATE_THRESHOLD` in
 | Power              | 0 dBm               | Maximum power                                 |
 | Payload           | 6 bytes (fixed)     | No dynamic payloads                           |
 | CRC               | 1-byte, enabled     | Error checking                                |
-| Auto-ACK          | Enabled on pipe 0   | Reliability                                   |
-| Auto-Retransmit   | SETUP_RETR = 0x4F   | 1250µs delay, up to 15 retries                |
+| Auto-ACK          | Disabled            | Broadcast — ACKs from many receivers collide  |
+| Auto-Retransmit   | Disabled            | Fire-and-forget; 3-copy TX burst instead      |
 | Address           | 0xE7E7E7E7E7        | Device address                                |
 | Networking        | None                | Plain point-to-point radio — no mesh, no node IDs, no route discovery |
 
