@@ -128,6 +128,7 @@ void app_main(void) {
   ESP_LOGI(TAG, "Controller initialized");
 
   uint16_t last_time = 65535;
+  uint16_t last_sent_second = 65535;
 
   // -------------------------------------------------------------------------
   // MAIN LOOP
@@ -311,6 +312,13 @@ void app_main(void) {
     // =====================================================================
     uint32_t t = xTaskGetTickCount() * portTICK_PERIOD_MS;
 
+    // Force an immediate broadcast when the timer second changes so remote
+    // displays track the controller within one loop iteration instead of
+    // lagging up to a full 250 ms transmit interval
+    if (now != last_sent_second) {
+      main_state.radio_last_transmit = 0;
+    }
+
     if (t - main_state.radio_last_transmit >= RADIO_TRANSMIT_INTERVAL_MS) {
 
       uint16_t sec = timer_manager_get_seconds(&timer_mgr);
@@ -324,6 +332,7 @@ void app_main(void) {
       radio_send_time(&radio, sec, c.r, c.g, c.b, sequence++);
 
       main_state.radio_last_transmit = t;
+      last_sent_second = now;
     }
 
     radio_update_link_status(&radio);

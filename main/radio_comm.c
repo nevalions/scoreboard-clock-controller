@@ -88,7 +88,8 @@ bool radio_send_time(RadioComm *radio, uint16_t seconds, uint8_t r, uint8_t g,
   nrf24_write_payload(&radio->base, payload, RADIO_PAYLOAD_SIZE);
   gpio_set_level(radio->base.ce_pin, 1);
 
-  // Wait for transmission to complete (max 30ms to allow for retries)
+  // Wait for TX_DS (broadcast, no auto-ACK/retries: completes in ~1ms;
+  // the timeout is a safety bound for a wedged chip)
   uint32_t start_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
   while ((xTaskGetTickCount() * portTICK_PERIOD_MS) - start_time <
          RADIO_TRANSMIT_TIMEOUT_MS) {
@@ -105,7 +106,7 @@ bool radio_send_time(RadioComm *radio, uint16_t seconds, uint8_t r, uint8_t g,
       return true;
     }
     if (status & NRF24_STATUS_MAX_RT) {
-      // Max retries reached
+      // Defensive: cannot fire with SETUP_RETR=0 (no auto-ACK broadcast)
       nrf24_write_register(&radio->base, NRF24_REG_STATUS, NRF24_STATUS_MAX_RT);
       gpio_set_level(radio->base.ce_pin, 0);
       radio->failure_count++;
