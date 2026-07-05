@@ -45,6 +45,10 @@ bool radio_send_time(RadioComm *radio, uint16_t seconds, uint8_t r, uint8_t g,
                      uint8_t b, uint8_t sequence);
 
 bool radio_is_transmit_complete(RadioComm *radio);
+
+// Re-configure a wedged radio (e.g. after brown-out) and restore TX mode.
+// Never restarts the MCU - the controller's running timer must survive
+bool radio_recover(RadioComm *radio);
 void radio_flush_tx(RadioComm *radio);
 void radio_dump_registers(RadioComm *radio);
 void radio_update_link_status(RadioComm *radio);

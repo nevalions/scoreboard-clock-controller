@@ -126,6 +126,26 @@ bool radio_send_time(RadioComm *radio, uint16_t seconds, uint8_t r, uint8_t g,
   return false;
 }
 
+bool radio_recover(RadioComm *radio) {
+  if (!radio || !radio->base.initialized) {
+    return false;
+  }
+
+  if (!radio_common_config_intact(&radio->base)) {
+    ESP_LOGW(TAG, "Radio lost its configuration (brown-out?)");
+  }
+
+  ESP_LOGW(TAG, "Re-configuring radio after sustained TX failures");
+  if (!radio_common_configure(&radio->base)) {
+    return false;
+  }
+
+  nrf24_power_up(&radio->base);
+  nrf24_write_register(&radio->base, NRF24_REG_CONFIG, RADIO_CONFIG_TX_MODE);
+  vTaskDelay(pdMS_TO_TICKS(2));
+  return true;
+}
+
 bool radio_is_transmit_complete(RadioComm *radio) {
   uint8_t status = nrf24_get_status(&radio->base);
   return (status & (NRF24_STATUS_TX_DS | NRF24_STATUS_MAX_RT)) != 0;

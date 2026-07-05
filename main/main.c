@@ -47,6 +47,13 @@ static const char *TAG = "CONTROLLER";
 #define RADIO_TRANSMIT_INTERVAL_MS 250
 #define MAIN_LOOP_DELAY_MS 50
 
+// Boot-time radio init retries
+#define RADIO_INIT_ATTEMPTS 3
+#define RADIO_INIT_RETRY_DELAY_MS 1000
+
+// Re-configure the radio after this many consecutive TX failures (~5s at 4Hz)
+#define RADIO_CONSEC_FAIL_LIMIT 20
+
 // -----------------------------------------------------------------------------
 // Globals
 // -----------------------------------------------------------------------------
@@ -116,19 +123,34 @@ void app_main(void) {
         sport_manager_get_current_group_index(&sport_mgr));
   }
 
-  // Radio initialization
-  if (!radio_begin(&radio, NRF24_CE_PIN, NRF24_CSN_PIN)) {
-    ESP_LOGE(TAG, "Radio init failed");
-    return;
+  // Radio initialization (retry: a transient SPI glitch at power-up must
+  // not leave the operator with a silently dead controller)
+  bool radio_ok = false;
+  for (int attempt = 1; attempt <= RADIO_INIT_ATTEMPTS; attempt++) {
+    radio_ok = radio_begin(&radio, NRF24_CE_PIN, NRF24_CSN_PIN);
+    if (radio_ok)
+      break;
+    ESP_LOGW(TAG, "Radio init attempt %d/%d failed, retrying...", attempt,
+             RADIO_INIT_ATTEMPTS);
+    vTaskDelay(pdMS_TO_TICKS(RADIO_INIT_RETRY_DELAY_MS));
   }
 
-  nrf24_power_up(&radio.base);
-  nrf24_write_register(&radio.base, NRF24_REG_CONFIG, RADIO_CONFIG_TX_MODE);
+  if (radio_ok) {
+    nrf24_power_up(&radio.base);
+    nrf24_write_register(&radio.base, NRF24_REG_CONFIG, RADIO_CONFIG_TX_MODE);
+  } else {
+    // The timer stays usable locally; make the dead radio visible on the
+    // TFT instead of silently returning from app_main
+    ESP_LOGE(TAG, "Radio init failed - continuing without radio");
+    st7735_print(&ui_mgr.st7735, 8, 4, st7735_color565(255, 0, 0),
+                 ST7735_BLACK, 1, "RADIO FAILED");
+  }
 
   ESP_LOGI(TAG, "Controller initialized");
 
   uint16_t last_time = 65535;
   uint16_t last_sent_second = 65535;
+  uint16_t consecutive_tx_failures = 0;
 
   // -------------------------------------------------------------------------
   // MAIN LOOP
@@ -319,7 +341,8 @@ void app_main(void) {
       main_state.radio_last_transmit = 0;
     }
 
-    if (t - main_state.radio_last_transmit >= RADIO_TRANSMIT_INTERVAL_MS) {
+    if (radio_ok &&
+        t - main_state.radio_last_transmit >= RADIO_TRANSMIT_INTERVAL_MS) {
 
       uint16_t sec = timer_manager_get_seconds(&timer_mgr);
       color_t c = get_sport_color(current_sport.color_scheme, sec);
@@ -329,13 +352,22 @@ void app_main(void) {
         sec = TIMER_NULL_SIGNAL;
       }
 
-      radio_send_time(&radio, sec, c.r, c.g, c.b, sequence++);
+      if (radio_send_time(&radio, sec, c.r, c.g, c.b, sequence++)) {
+        consecutive_tx_failures = 0;
+      } else if (++consecutive_tx_failures >= RADIO_CONSEC_FAIL_LIMIT) {
+        // Sustained failures suggest a wedged chip, not RF conditions:
+        // re-configure it (never restart - the timer must survive)
+        radio_recover(&radio);
+        consecutive_tx_failures = 0;
+      }
 
       main_state.radio_last_transmit = t;
       last_sent_second = now;
     }
 
-    radio_update_link_status(&radio);
+    if (radio_ok) {
+      radio_update_link_status(&radio);
+    }
 
     vTaskDelay(pdMS_TO_TICKS(MAIN_LOOP_DELAY_MS));
   }
