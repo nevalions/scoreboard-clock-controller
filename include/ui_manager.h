@@ -22,6 +22,12 @@ void ui_manager_update_time(UiManager *manager, const sport_config_t *sport,
                             uint16_t seconds,
                             const SportManager *sport_manager);
 
+// Final-5s update: big clock shows tenths ("4.9"), ~10Hz partial redraw
+void ui_manager_update_time_tenths(UiManager *manager,
+                                   const sport_config_t *sport,
+                                   uint16_t deciseconds,
+                                   const SportManager *sport_manager);
+
 // Full redraw (state change)
 void ui_manager_update_display(UiManager *manager, const sport_config_t *sport,
                                uint16_t seconds,

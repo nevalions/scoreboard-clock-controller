@@ -72,3 +72,21 @@ void ui_st7735_update_time(UiManager *m, const sport_config_t *sport,
 
   ui_st7735_print_center(lcd, 85, ST7735_WHITE, ST7735_BLACK, 4, buf);
 }
+
+void ui_st7735_update_time_tenths(UiManager *m, const sport_config_t *sport,
+                                  uint16_t deciseconds,
+                                  const SportManager *sm) {
+  (void)sport;
+  (void)sm;
+
+  // "4.9" style; called at ~10Hz in the final 5s - same partial-area
+  // redraw as the whole-second path
+  char buf[8];
+  snprintf(buf, sizeof(buf), "%u.%u", deciseconds / 10, deciseconds % 10);
+
+  St7735Lcd *lcd = &m->st7735;
+
+  st7735_draw_rect(lcd, 10, 70, ST7735_WIDTH - 20, 80, ST7735_BLACK);
+
+  ui_st7735_print_center(lcd, 85, ST7735_WHITE, ST7735_BLACK, 4, buf);
+}

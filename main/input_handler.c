@@ -148,10 +148,17 @@ InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
     bool cw = delta > 0;
 
     if (ui == SPORT_UI_STATE_RUNNING) {
-      // Any rotation opens the sport menu; swallow the whole backlog so
-      // queued detents don't re-toggle the menu on subsequent polls
-      h->last_consumed_position = h->rotary_encoder.position;
-      return INPUT_ACTION_SPORT_SELECT;
+      if (timer_manager_is_running(timer_mgr)) {
+        // Any rotation opens the sport menu; swallow the whole backlog so
+        // queued detents don't re-toggle the menu on subsequent polls
+        h->last_consumed_position = h->rotary_encoder.position;
+        return INPUT_ACTION_SPORT_SELECT;
+      }
+      // Timer paused: rotation is the officials' time correction,
+      // one +/-1s step per detent (backlog drains like menu scrolling)
+      h->last_consumed_position +=
+          cw ? ROTARY_COUNTS_PER_DETENT : -ROTARY_COUNTS_PER_DETENT;
+      return cw ? INPUT_ACTION_TIME_INC : INPUT_ACTION_TIME_DEC;
     }
 
     if (ui == SPORT_UI_STATE_SELECT_SPORT ||

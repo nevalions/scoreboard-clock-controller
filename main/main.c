@@ -189,6 +189,20 @@ void app_main(void) {
       break;
 
     // *********************************************************************
+    // TIME ADJUST (rotary rotation while paused): officials' correction
+    // *********************************************************************
+    case INPUT_ACTION_TIME_INC:
+    case INPUT_ACTION_TIME_DEC:
+      if (ui_state == SPORT_UI_STATE_RUNNING &&
+          !timer_manager_is_running(&timer_mgr)) {
+        timer_manager_adjust_ms(&timer_mgr,
+                                action == INPUT_ACTION_TIME_INC ? 1000 : -1000);
+        ESP_LOGI(TAG, "Time adjusted to %lu ms",
+                 (unsigned long)timer_manager_get_remaining_ms(&timer_mgr));
+      }
+      break;
+
+    // *********************************************************************
     // BRIGHTNESS CYCLE (rotary click on running screen)
     // *********************************************************************
     case INPUT_ACTION_BRIGHTNESS_CYCLE:
@@ -343,11 +357,26 @@ void app_main(void) {
 
     uint16_t now = timer_manager_get_seconds(&timer_mgr);
 
-    if (now != last_time &&
+    // Final 5 seconds (running or paused): time is handled in deciseconds
+    // so both the TFT and the radio frames show tenths. Paused inside the
+    // window shows the exact restart value (stop at 3.4 displays 3.4)
+    uint32_t rem_ms = timer_manager_get_remaining_ms(&timer_mgr);
+    uint16_t ds = timer_manager_get_deciseconds(&timer_mgr);
+    bool tenths_mode = rem_ms > 0 && rem_ms < 5000;
+
+    // Track the displayed value: whole seconds normally, 1000+ds in the
+    // tenths window (disjoint ranges, so transitions always redraw)
+    uint16_t disp_val = tenths_mode ? (uint16_t)(1000 + ds) : now;
+
+    if (disp_val != last_time &&
         sport_manager_get_ui_state(&sport_mgr) == SPORT_UI_STATE_RUNNING) {
 
-      ui_manager_update_time(&ui_mgr, &current_sport, now, &sport_mgr);
-      last_time = now;
+      if (tenths_mode) {
+        ui_manager_update_time_tenths(&ui_mgr, &current_sport, ds, &sport_mgr);
+      } else {
+        ui_manager_update_time(&ui_mgr, &current_sport, now, &sport_mgr);
+      }
+      last_time = disp_val;
     }
 
     // =====================================================================
@@ -374,14 +403,14 @@ void app_main(void) {
     // =====================================================================
     uint32_t t = xTaskGetTickCount() * portTICK_PERIOD_MS;
 
-    // Final 5 seconds while running: switch the carried time to the
-    // deciseconds encoding (256+d) so displays show tenths, FIBA/NBA
-    // shot-clock style
-    uint16_t ds = timer_manager_get_deciseconds(&timer_mgr);
-    bool tenths_mode =
-        timer_manager_is_running(&timer_mgr) && ds > 0 && ds < 50;
+    // Carried time value: deciseconds encoding (256+d) inside the tenths
+    // window, whole seconds otherwise; bit 15 flags the 10s buzzer for
+    // sports that use it (football)
     uint16_t tx_value =
         tenths_mode ? (uint16_t)(RADIO_TIME_DECISECONDS_BASE + ds) : now;
+    if (current_sport.warn_at_10) {
+      tx_value |= RADIO_TIME_FLAG_WARN10;
+    }
 
     // Force an immediate broadcast when the carried value changes so remote
     // displays track the controller within one loop iteration instead of

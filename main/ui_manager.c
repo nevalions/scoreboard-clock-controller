@@ -69,6 +69,15 @@ void ui_manager_show_variant_menu(UiManager *m, const sport_group_t *group,
   ui_draw_st7735_variant_menu(m, group, selected_idx);
 }
 
+void ui_manager_update_time_tenths(UiManager *m, const sport_config_t *sport,
+                                   uint16_t deciseconds,
+                                   const SportManager *sport_manager) {
+  if (!m || !m->initialized)
+    return;
+
+  ui_st7735_update_time_tenths(m, sport, deciseconds, sport_manager);
+}
+
 void ui_manager_draw_status(UiManager *m, bool running, bool link_good,
                             uint8_t brightness_pct) {
   if (!m || !m->initialized)

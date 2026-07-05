@@ -32,6 +32,9 @@ typedef struct {
     const char* variation;
     playclock_behavior_t behavior;
     color_scheme_t color_scheme;
+    // Rules call for a buzzer when the count reaches 10 (football);
+    // carried to receivers as RADIO_TIME_FLAG_WARN10
+    bool warn_at_10;
 } sport_config_t;
 
 sport_config_t get_sport_config(sport_type_t sport);

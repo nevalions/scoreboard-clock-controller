@@ -2,19 +2,28 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+static uint32_t now_ms(void) {
+  return xTaskGetTickCount() * portTICK_PERIOD_MS;
+}
+
 void timer_manager_init(TimerManager *m, uint16_t initial_seconds) {
-  m->current_seconds = initial_seconds;
+  m->remaining_ms = (uint32_t)initial_seconds * 1000;
   m->is_running = false;
-  m->timer_last_update = xTaskGetTickCount() * portTICK_PERIOD_MS;
+  m->last_update_ms = now_ms();
   m->zero_reached_timestamp = 0;
 }
 
 void timer_manager_start(TimerManager *m) {
   m->is_running = true;
-  m->timer_last_update = xTaskGetTickCount() * portTICK_PERIOD_MS;
+  m->last_update_ms = now_ms();
 }
 
-void timer_manager_stop(TimerManager *m) { m->is_running = false; }
+void timer_manager_stop(TimerManager *m) {
+  // Accrue the partial second before freezing so stop preserves the
+  // exact remaining time (stop at 3.4 resumes at 3.4)
+  timer_manager_update(m);
+  m->is_running = false;
+}
 
 void timer_manager_start_stop(TimerManager *m) {
   if (m->is_running)
@@ -24,51 +33,59 @@ void timer_manager_start_stop(TimerManager *m) {
 }
 
 void timer_manager_reset(TimerManager *m, uint16_t seconds) {
-  m->current_seconds = seconds;
+  m->remaining_ms = (uint32_t)seconds * 1000;
   m->zero_reached_timestamp = 0;
-  m->timer_last_update = xTaskGetTickCount() * portTICK_PERIOD_MS;
+  m->last_update_ms = now_ms();
 }
 
 void timer_manager_update(TimerManager *m) {
   if (!m->is_running)
     return;
 
-  uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
-  if (now - m->timer_last_update >= 1000) {
-    m->timer_last_update = now;
-    if (m->current_seconds > 0)
-      m->current_seconds--;
+  uint32_t now = now_ms();
+  uint32_t elapsed = now - m->last_update_ms;
+  m->last_update_ms = now;
 
-    if (m->current_seconds == 0 && m->zero_reached_timestamp == 0) {
-      m->zero_reached_timestamp = now;
-    }
+  m->remaining_ms = (elapsed >= m->remaining_ms) ? 0 : m->remaining_ms - elapsed;
+
+  if (m->remaining_ms == 0 && m->zero_reached_timestamp == 0) {
+    m->zero_reached_timestamp = now;
   }
 }
 
 bool timer_manager_should_send_null(const TimerManager *m) {
-  if (m->current_seconds != 0 || m->zero_reached_timestamp == 0)
+  if (m->remaining_ms != 0 || m->zero_reached_timestamp == 0)
     return false;
 
-  uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
-  return (now - m->zero_reached_timestamp) >= TIMER_NULL_SIGNAL_DELAY_MS;
+  return (now_ms() - m->zero_reached_timestamp) >= TIMER_NULL_SIGNAL_DELAY_MS;
 }
 
 uint16_t timer_manager_get_seconds(const TimerManager *m) {
-  return m->current_seconds;
+  return (uint16_t)((m->remaining_ms + 999) / 1000);
 }
 
 uint16_t timer_manager_get_deciseconds(const TimerManager *m) {
-  uint16_t ds = m->current_seconds * 10;
-  if (!m->is_running || m->current_seconds == 0)
-    return ds;
+  return (uint16_t)(m->remaining_ms / 100);
+}
 
-  uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
-  uint32_t elapsed = now - m->timer_last_update;
-  if (elapsed > 999)
-    elapsed = 999;
+uint32_t timer_manager_get_remaining_ms(const TimerManager *m) {
+  return m->remaining_ms;
+}
 
-  uint16_t sub = (uint16_t)(elapsed / 100);
-  return (ds > sub) ? (uint16_t)(ds - sub) : 0;
+void timer_manager_adjust_ms(TimerManager *m, int32_t delta_ms) {
+  if (m->is_running)
+    return;
+
+  int64_t adjusted = (int64_t)m->remaining_ms + delta_ms;
+  if (adjusted < 0)
+    adjusted = 0;
+  if (adjusted > (int64_t)TIMER_MAX_SECONDS * 1000)
+    adjusted = (int64_t)TIMER_MAX_SECONDS * 1000;
+
+  m->remaining_ms = (uint32_t)adjusted;
+  if (m->remaining_ms > 0) {
+    m->zero_reached_timestamp = 0;
+  }
 }
 
 bool timer_manager_is_running(const TimerManager *m) { return m->is_running; }

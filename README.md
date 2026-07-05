@@ -115,6 +115,7 @@ This controller manages timing and sport selection for a wireless scoreboard sys
     - **Clockwise**: Next sport group
     - **Counter-clockwise**: Previous sport group
   - **While timer is running**: Any rotation opens the sport selection menu (equivalent to double-tapping the control button)
+  - **While timer is paused**: Rotation adjusts the clock ±1s per detent (officials' correction, clamped 0–99s). The sport menu is still reachable via double-tap
   - **In variant selection menu**: Cycles the variants of the selected group; the `>` marker highlights the current choice
 - **Button Press (SW)**:
   - **In sport selection menu**: Confirms the highlighted sport group and enters its variant menu
@@ -219,9 +220,11 @@ Use `idf.py menuconfig` to access:
 ```
 
 Time value encoding: 0-99 whole seconds; 255 null/clear; 256+d deciseconds
-(d = 0-49). The final 5 seconds of a running countdown are sent as
-deciseconds so displays show tenths (shot-clock style), with a forced
-transmit on every decisecond change (~10 Hz).
+(d = 0-49); bit 15 flags the 10-second buzzer for sports that use it
+(football). The final 5 seconds are sent as deciseconds so displays show
+tenths (shot-clock style) with a forced transmit on every decisecond change
+(~10 Hz) — including while paused, so a clock stopped at 3.4 displays 3.4.
+Pause preserves the exact remaining time (millisecond-accurate timer).
 
 #### Radio Configuration
 
