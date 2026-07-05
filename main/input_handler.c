@@ -6,7 +6,9 @@
 
 #define DOUBLE_TAP_MS 500
 #define HOLD_RESET_MS 2000
-#define ROTARY_DEBOUNCE_MS 120
+
+// KY-040: one physical detent = 4 quadrature transitions
+#define ROTARY_COUNTS_PER_DETENT 4
 
 static const char *TAG = "INPUT_HANDLER";
 
@@ -41,8 +43,7 @@ void input_handler_init(InputHandler *h, gpio_num_t control_pin,
   h->press_start_time = 0;
   h->last_press_time = 0;
   h->press_count = 0;
-  h->last_rotary_action_ms = 0;
-  h->last_dir = ROTARY_NONE;
+  h->last_consumed_position = 0;
 
   ESP_LOGI(TAG, "InputHandler initialized");
 }
@@ -136,27 +137,33 @@ InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
   }
 
   // -------------------------------------------------------------------------
-  // ROTARY SCROLL
+  // ROTARY SCROLL — consume accumulated quadrature counts so fast spins
+  // never drop steps (each poll emits at most one action; the backlog
+  // drains over the following polls)
   // -------------------------------------------------------------------------
-  RotaryDirection dir = rotary_encoder_get_direction(&h->rotary_encoder);
+  int32_t delta = h->rotary_encoder.position - h->last_consumed_position;
 
-  if (dir != ROTARY_NONE) {
-    if (now - h->last_rotary_action_ms >= ROTARY_DEBOUNCE_MS) {
+  if (delta >= ROTARY_COUNTS_PER_DETENT ||
+      delta <= -ROTARY_COUNTS_PER_DETENT) {
+    bool cw = delta > 0;
 
-      h->last_rotary_action_ms = now;
-
-      ESP_LOGI(TAG, "Rotary scroll: %s", dir == ROTARY_CW ? "CW" : "CCW");
-
-      InputAction scroll = (dir == ROTARY_CW ? INPUT_ACTION_SPORT_NEXT
-                                             : INPUT_ACTION_SPORT_PREV);
-
-      if (ui == SPORT_UI_STATE_SELECT_SPORT)
-        return scroll;
-      if (ui == SPORT_UI_STATE_SELECT_VARIANT)
-        return scroll;
-      if (ui == SPORT_UI_STATE_RUNNING)
-        return INPUT_ACTION_SPORT_SELECT;
+    if (ui == SPORT_UI_STATE_RUNNING) {
+      // Any rotation opens the sport menu; swallow the whole backlog so
+      // queued detents don't re-toggle the menu on subsequent polls
+      h->last_consumed_position = h->rotary_encoder.position;
+      return INPUT_ACTION_SPORT_SELECT;
     }
+
+    if (ui == SPORT_UI_STATE_SELECT_SPORT ||
+        ui == SPORT_UI_STATE_SELECT_VARIANT) {
+      h->last_consumed_position +=
+          cw ? ROTARY_COUNTS_PER_DETENT : -ROTARY_COUNTS_PER_DETENT;
+      ESP_LOGI(TAG, "Rotary scroll: %s", cw ? "CW" : "CCW");
+      return cw ? INPUT_ACTION_SPORT_NEXT : INPUT_ACTION_SPORT_PREV;
+    }
+
+    // Unhandled state: drop the backlog
+    h->last_consumed_position = h->rotary_encoder.position;
   }
 
   // -------------------------------------------------------------------------

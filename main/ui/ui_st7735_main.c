@@ -28,6 +28,26 @@ void ui_draw_st7735_main(UiManager *m, const sport_config_t *sport,
   ui_st7735_print_center(lcd, 85, ST7735_WHITE, ST7735_BLACK, 4, timebuf);
 }
 
+void ui_st7735_draw_status(UiManager *m, bool running, bool link_good) {
+  St7735Lcd *lcd = &m->st7735;
+
+  // RUN/PAUSE glyph, top-left corner (sport name is centered, so the
+  // corners of the header row are free)
+  st7735_draw_rect(lcd, UI_ST7735_MARGIN + 2, 2, 36, 8, ST7735_BLACK);
+  if (running) {
+    st7735_print(lcd, UI_ST7735_MARGIN + 2, 2, ST7735_GREEN, ST7735_BLACK, 1,
+                 "RUN");
+  } else {
+    st7735_print(lcd, UI_ST7735_MARGIN + 2, 2, ST7735_YELLOW, ST7735_BLACK, 1,
+                 "PAUSE");
+  }
+
+  // Radio link dot, top-right corner: green = frames airing, red = not
+  uint16_t link_color = link_good ? ST7735_GREEN : ST7735_RED;
+  st7735_draw_rect(lcd, ST7735_WIDTH - UI_ST7735_MARGIN - 10, 2, 8, 8,
+                   link_color);
+}
+
 void ui_st7735_update_time(UiManager *m, const sport_config_t *sport,
                           uint16_t sec, const SportManager *sm) {
   (void)sport; // header + variant bar unchanged on increments

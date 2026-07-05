@@ -38,7 +38,11 @@ void ui_st7735_update_sport_menu_selection(UiManager *manager,
 
 // Variant selection list
 void ui_manager_show_variant_menu(UiManager *manager,
-                                  const sport_group_t *group);
+                                  const sport_group_t *group,
+                                  uint8_t selected_idx);
+
+// Small RUN/PAUSE + radio-link status glyphs (running screen only)
+void ui_manager_draw_status(UiManager *manager, bool running, bool link_good);
 
 void ui_manager_clear(UiManager *manager);
 void ui_manager_run_display_tests(UiManager *manager);

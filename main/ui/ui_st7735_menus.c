@@ -33,7 +33,8 @@ void ui_draw_st7735_sport_menu(UiManager *m, const sport_group_t *groups,
   }
 }
 
-void ui_draw_st7735_variant_menu(UiManager *m, const sport_group_t *group) {
+void ui_draw_st7735_variant_menu(UiManager *m, const sport_group_t *group,
+                                 uint8_t selected_idx) {
   St7735Lcd *lcd = &m->st7735;
 
   st7735_clear(lcd, ST7735_BLACK);
@@ -58,9 +59,12 @@ void ui_draw_st7735_variant_menu(UiManager *m, const sport_group_t *group) {
   for (uint8_t i = 0; i < group->variant_count; i++) {
     sport_config_t cfg = get_sport_config(group->variants[i]);
     char line[32];
-    snprintf(line, sizeof(line), "(%u) %u", i + 1, cfg.play_clock_seconds);
+    snprintf(line, sizeof(line), "%c%u %u", (i == selected_idx) ? '>' : ' ',
+             i + 1, cfg.play_clock_seconds);
 
-    ui_st7735_print_center(lcd, y, ST7735_WHITE, ST7735_BLACK, 2, line);
+    uint16_t fg = (i == selected_idx) ? UI_ST7735_VARIANT_HIGHLIGHT_COLOR
+                                      : ST7735_WHITE;
+    ui_st7735_print_center(lcd, y, fg, ST7735_BLACK, 2, line);
 
     y += UI_ST7735_VARIANT_SPACING;
   }

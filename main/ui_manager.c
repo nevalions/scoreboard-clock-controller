@@ -61,11 +61,19 @@ void ui_manager_show_sport_menu(UiManager *m, const sport_group_t *groups,
   ui_draw_st7735_sport_menu(m, groups, group_count, selected_group_idx);
 }
 
-void ui_manager_show_variant_menu(UiManager *m, const sport_group_t *group) {
+void ui_manager_show_variant_menu(UiManager *m, const sport_group_t *group,
+                                  uint8_t selected_idx) {
   if (!m || !m->initialized)
     return;
 
-  ui_draw_st7735_variant_menu(m, group);
+  ui_draw_st7735_variant_menu(m, group, selected_idx);
+}
+
+void ui_manager_draw_status(UiManager *m, bool running, bool link_good) {
+  if (!m || !m->initialized)
+    return;
+
+  ui_st7735_draw_status(m, running, link_good);
 }
 
 void ui_manager_clear(UiManager *m) {

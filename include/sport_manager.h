@@ -84,6 +84,10 @@ void sport_manager_exit_menu(SportManager *manager); // cancel, back to running
 // Move to next sport in list (BASKETBALL -> FOOTBALL -> ...)
 void sport_manager_next_sport(SportManager *manager);
 
+// Cycle variants inside the current group (only in SELECT_VARIANT state)
+void sport_manager_next_variant(SportManager *manager);
+void sport_manager_prev_variant(SportManager *manager);
+
 // Confirm currently selected variant (always the *current_variant_idx*)
 // and switch to RUNNING
 void sport_manager_confirm_selection(SportManager *manager);

@@ -13,7 +13,6 @@ typedef enum {
 
   INPUT_ACTION_START_STOP = 1,
   INPUT_ACTION_RESET = 2,
-  INPUT_ACTION_TIME_ADJUST = 3,
 
   INPUT_ACTION_SPORT_SELECT = 4,
   INPUT_ACTION_SPORT_CONFIRM = 5,
@@ -44,10 +43,10 @@ typedef struct {
   uint32_t last_press_time;
   uint8_t press_count;
 
-  // Rotary debounce
-  uint32_t last_rotary_action_ms;
-
-  RotaryDirection last_dir;
+  // Rotary: encoder position already consumed into actions. Tracking the
+  // position delta (instead of time-debouncing) means fast spins emit one
+  // action per poll until the backlog is drained - no dropped steps
+  int32_t last_consumed_position;
 } InputHandler;
 
 void input_handler_init(InputHandler *h, gpio_num_t control_pin,

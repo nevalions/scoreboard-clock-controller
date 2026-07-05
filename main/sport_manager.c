@@ -214,6 +214,37 @@ void sport_manager_next_sport(SportManager *manager) {
   manager->selected_sport_type = g->variants[manager->current_variant_idx];
 }
 
+void sport_manager_next_variant(SportManager *manager) {
+  if (!manager)
+    return;
+  if (manager->ui_state != SPORT_UI_STATE_SELECT_VARIANT)
+    return;
+
+  const sport_group_t *g = &g_sport_groups[manager->current_group_idx];
+  if (g->variant_count == 0)
+    return;
+
+  manager->current_variant_idx =
+      (manager->current_variant_idx + 1) % g->variant_count;
+  manager->selected_sport_type = g->variants[manager->current_variant_idx];
+}
+
+void sport_manager_prev_variant(SportManager *manager) {
+  if (!manager)
+    return;
+  if (manager->ui_state != SPORT_UI_STATE_SELECT_VARIANT)
+    return;
+
+  const sport_group_t *g = &g_sport_groups[manager->current_group_idx];
+  if (g->variant_count == 0)
+    return;
+
+  manager->current_variant_idx = (manager->current_variant_idx == 0)
+                                     ? g->variant_count - 1
+                                     : manager->current_variant_idx - 1;
+  manager->selected_sport_type = g->variants[manager->current_variant_idx];
+}
+
 void sport_manager_confirm_selection(SportManager *manager) {
   if (!manager)
     return;

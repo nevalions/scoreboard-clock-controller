@@ -151,6 +151,7 @@ void app_main(void) {
   uint16_t last_time = 65535;
   uint16_t last_sent_second = 65535;
   uint16_t consecutive_tx_failures = 0;
+  int last_status = -1; // encoded RUN/link glyph state; -1 forces a redraw
 
   // -------------------------------------------------------------------------
   // MAIN LOOP
@@ -187,17 +188,6 @@ void app_main(void) {
       if (ui_state == SPORT_UI_STATE_RUNNING) {
         apply_current_sport_and_reset(&timer_mgr, &ui_mgr, &sport_mgr,
                                       &current_sport);
-      }
-      break;
-
-    // *********************************************************************
-    // TIME ADJUST
-    // *********************************************************************
-    case INPUT_ACTION_TIME_ADJUST:
-      if (ui_state == SPORT_UI_STATE_RUNNING) {
-        ui_manager_update_time(&ui_mgr, &current_sport,
-                               timer_manager_get_seconds(&timer_mgr),
-                               &sport_mgr);
       }
       break;
 
@@ -282,6 +272,17 @@ void app_main(void) {
         ui_st7735_update_sport_menu_selection(
             &ui_mgr, groups, group_count,
             sport_manager_get_current_group_index(&sport_mgr));
+
+      } else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
+
+        if (action == INPUT_ACTION_SPORT_NEXT)
+          sport_manager_next_variant(&sport_mgr);
+        else
+          sport_manager_prev_variant(&sport_mgr);
+
+        ui_manager_show_variant_menu(
+            &ui_mgr, sport_manager_get_current_group(&sport_mgr),
+            sport_manager_get_current_variant_index(&sport_mgr));
       }
 
       break;
@@ -299,7 +300,8 @@ void app_main(void) {
         const sport_group_t *group =
             sport_manager_get_current_group(&sport_mgr);
 
-        ui_manager_show_variant_menu(&ui_mgr, group);
+        ui_manager_show_variant_menu(
+            &ui_mgr, group, sport_manager_get_current_variant_index(&sport_mgr));
       }
 
       else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
@@ -327,6 +329,23 @@ void app_main(void) {
 
       ui_manager_update_time(&ui_mgr, &current_sport, now, &sport_mgr);
       last_time = now;
+    }
+
+    // =====================================================================
+    // STATUS GLYPHS (RUN/PAUSE + radio link) — running screen only
+    // =====================================================================
+    if (sport_manager_get_ui_state(&sport_mgr) == SPORT_UI_STATE_RUNNING) {
+      int status_now = (timer_manager_is_running(&timer_mgr) ? 2 : 0) |
+                       ((radio_ok && radio.link_good) ? 1 : 0);
+      // Redraw when state changes, or after any action (full redraws from
+      // reset/preset/confirm wipe the glyph area)
+      if (status_now != last_status || action != INPUT_ACTION_NONE) {
+        ui_manager_draw_status(&ui_mgr, timer_manager_is_running(&timer_mgr),
+                               radio_ok && radio.link_good);
+        last_status = status_now;
+      }
+    } else {
+      last_status = -1;
     }
 
     // =====================================================================
