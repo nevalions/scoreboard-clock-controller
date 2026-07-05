@@ -2,6 +2,7 @@
 #include "ui_helpers.h"
 #include "ui_manager.h"
 #include "sport_selector.h"
+#include "radio_config.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -88,4 +89,44 @@ void ui_st7735_update_sport_menu_selection(UiManager *m,
 
     y += UI_ST7735_LINE_SPACING;
   }
+}
+void ui_draw_st7735_channel_menu(UiManager *m, const uint8_t *channels,
+                                 const uint16_t *scores, uint8_t count,
+                                 uint8_t selected_idx, uint8_t active_idx) {
+  St7735Lcd *lcd = &m->st7735;
+
+  st7735_clear(lcd, ST7735_BLACK);
+  ui_draw_st7735_frame(m);
+
+  ui_st7735_print_center(lcd, UI_ST7735_HEADER_Y, ST7735_YELLOW, ST7735_BLACK,
+                         1, "RADIO CHANNEL");
+
+  ui_draw_st7735_header_underline(lcd);
+
+  int y = UI_ST7735_MENU_LIST_Y;
+
+  for (uint8_t i = 0; i < count; i++) {
+    // Occupancy bar: survey busy-count scaled to 0-8 '#' chars
+    char bar[9];
+    uint8_t bar_len = (uint8_t)((scores[i] * 8) / RADIO_SURVEY_SAMPLES);
+    if (bar_len > 8)
+      bar_len = 8;
+    for (uint8_t b = 0; b < 8; b++)
+      bar[b] = (b < bar_len) ? '#' : ' ';
+    bar[8] = '\0';
+
+    char line[32];
+    snprintf(line, sizeof(line), "%c%3u %s%c",
+             (i == selected_idx) ? '>' : ' ', channels[i], bar,
+             (i == active_idx) ? '*' : ' ');
+
+    uint16_t color = (i == selected_idx) ? UI_ST7735_VARIANT_HIGHLIGHT_COLOR
+                                         : UI_ST7735_VARIANT_NORMAL_COLOR;
+    st7735_print(lcd, UI_ST7735_MARGIN + 4, y, color, ST7735_BLACK, 1, line);
+
+    y += UI_ST7735_LINE_SPACING;
+  }
+
+  st7735_print(lcd, UI_ST7735_MARGIN + 4, y + 4, ST7735_WHITE, ST7735_BLACK, 1,
+               "#=busy *=active");
 }

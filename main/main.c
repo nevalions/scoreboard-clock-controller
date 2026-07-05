@@ -69,9 +69,35 @@ static const uint8_t BRIGHTNESS_PCT[] = {100, 50, 25};
 typedef struct {
   uint32_t radio_last_transmit;
   uint8_t brightness_idx;
+  uint8_t channel_menu_idx;
 } MainState;
 
 static MainState main_state = {0};
+
+// Channel agility: candidate list shared with receivers via radio_config.h;
+// scores refreshed at boot and whenever the channel menu opens
+static const uint8_t CHANNEL_CANDIDATES[] = RADIO_CHANNEL_CANDIDATES;
+static uint16_t channel_scores[RADIO_CHANNEL_CANDIDATE_COUNT];
+
+static uint8_t channel_index_of(uint8_t channel) {
+  for (uint8_t i = 0; i < RADIO_CHANNEL_CANDIDATE_COUNT; i++) {
+    if (CHANNEL_CANDIDATES[i] == channel)
+      return i;
+  }
+  return 0;
+}
+
+// Survey every candidate (~250ms); restores the active channel afterwards.
+// The next radio_send_time() re-enters TX mode itself
+static void survey_channels(RadioComm *r) {
+  for (uint8_t i = 0; i < RADIO_CHANNEL_CANDIDATE_COUNT; i++) {
+    channel_scores[i] = radio_common_survey_channel(
+        &r->base, CHANNEL_CANDIDATES[i], RADIO_SURVEY_SAMPLES);
+    ESP_LOGI(TAG, "Survey: channel %u busy %u/%u", CHANNEL_CANDIDATES[i],
+             channel_scores[i], RADIO_SURVEY_SAMPLES);
+  }
+  radio_common_set_channel(&r->base, r->base.channel);
+}
 
 // Common sequence after a sport change or reset request: stop the timer,
 // re-read the active sport, reset the countdown and redraw the display.
@@ -143,6 +169,19 @@ void app_main(void) {
   }
 
   if (radio_ok) {
+    // Venue noise survey: pick the quietest candidate before the first TX.
+    // Receivers find us by scanning the same list
+    survey_channels(&radio);
+    uint8_t best = 0;
+    for (uint8_t i = 1; i < RADIO_CHANNEL_CANDIDATE_COUNT; i++) {
+      if (channel_scores[i] < channel_scores[best])
+        best = i;
+    }
+    radio_common_set_channel(&radio.base, CHANNEL_CANDIDATES[best]);
+    ESP_LOGI(TAG, "Auto-picked channel %u (busy %u/%u)",
+             CHANNEL_CANDIDATES[best], channel_scores[best],
+             RADIO_SURVEY_SAMPLES);
+
     nrf24_power_up(&radio.base);
     nrf24_write_register(&radio.base, NRF24_REG_CONFIG, RADIO_CONFIG_TX_MODE);
   } else {
@@ -186,6 +225,31 @@ void app_main(void) {
     case INPUT_ACTION_START_STOP:
       if (ui_state == SPORT_UI_STATE_RUNNING)
         timer_manager_start_stop(&timer_mgr);
+      break;
+
+    // *********************************************************************
+    // CHANNEL MENU (control button in the sport menu toggles it)
+    // *********************************************************************
+    case INPUT_ACTION_CHANNEL_MENU:
+      if (ui_state == SPORT_UI_STATE_SELECT_SPORT) {
+        if (radio_ok) {
+          survey_channels(&radio);
+        }
+        main_state.channel_menu_idx = channel_index_of(radio.base.channel);
+        sport_manager_enter_channel_menu(&sport_mgr);
+        ui_manager_show_channel_menu(&ui_mgr, CHANNEL_CANDIDATES,
+                                     channel_scores,
+                                     RADIO_CHANNEL_CANDIDATE_COUNT,
+                                     main_state.channel_menu_idx,
+                                     channel_index_of(radio.base.channel));
+      } else if (ui_state == SPORT_UI_STATE_CHANNEL_MENU) {
+        // Toggle back to the sport menu without changing the channel
+        sport_manager_enter_sport_menu(&sport_mgr);
+        size_t gc;
+        const sport_group_t *gs = sport_manager_get_groups(&gc);
+        ui_manager_show_sport_menu(
+            &ui_mgr, gs, gc, sport_manager_get_current_group_index(&sport_mgr));
+      }
       break;
 
     // *********************************************************************
@@ -316,6 +380,20 @@ void app_main(void) {
         ui_manager_show_variant_menu(
             &ui_mgr, sport_manager_get_current_group(&sport_mgr),
             sport_manager_get_current_variant_index(&sport_mgr));
+      } else if (ui_state == SPORT_UI_STATE_CHANNEL_MENU) {
+
+        uint8_t idx = main_state.channel_menu_idx;
+        main_state.channel_menu_idx =
+            (action == INPUT_ACTION_SPORT_NEXT)
+                ? (uint8_t)((idx + 1) % RADIO_CHANNEL_CANDIDATE_COUNT)
+                : (uint8_t)(idx == 0 ? RADIO_CHANNEL_CANDIDATE_COUNT - 1
+                                     : idx - 1);
+
+        ui_manager_show_channel_menu(&ui_mgr, CHANNEL_CANDIDATES,
+                                     channel_scores,
+                                     RADIO_CHANNEL_CANDIDATE_COUNT,
+                                     main_state.channel_menu_idx,
+                                     channel_index_of(radio.base.channel));
       }
 
       break;
@@ -343,6 +421,25 @@ void app_main(void) {
 
         apply_current_sport_and_reset(&timer_mgr, &ui_mgr, &sport_mgr,
                                       &current_sport);
+      }
+
+      else if (ui_state == SPORT_UI_STATE_CHANNEL_MENU) {
+
+        // Apply the picked channel; receivers re-acquire by scanning the
+        // candidate list within a few seconds. The clock is NOT reset -
+        // a channel change must never wipe game state
+        if (radio_ok) {
+          radio_common_set_channel(
+              &radio.base, CHANNEL_CANDIDATES[main_state.channel_menu_idx]);
+          nrf24_power_up(&radio.base);
+          nrf24_write_register(&radio.base, NRF24_REG_CONFIG,
+                               RADIO_CONFIG_TX_MODE);
+        }
+
+        sport_manager_exit_menu(&sport_mgr);
+        ui_manager_update_display(&ui_mgr, &current_sport,
+                                  timer_manager_get_seconds(&timer_mgr),
+                                  &sport_mgr);
       }
       break;
 

@@ -69,6 +69,16 @@ void ui_manager_show_variant_menu(UiManager *m, const sport_group_t *group,
   ui_draw_st7735_variant_menu(m, group, selected_idx);
 }
 
+void ui_manager_show_channel_menu(UiManager *m, const uint8_t *channels,
+                                  const uint16_t *scores, uint8_t count,
+                                  uint8_t selected_idx, uint8_t active_idx) {
+  if (!m || !m->initialized)
+    return;
+
+  ui_draw_st7735_channel_menu(m, channels, scores, count, selected_idx,
+                              active_idx);
+}
+
 void ui_manager_update_time_tenths(UiManager *m, const sport_config_t *sport,
                                    uint16_t deciseconds,
                                    const SportManager *sport_manager) {

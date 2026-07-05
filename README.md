@@ -228,7 +228,11 @@ Pause preserves the exact remaining time (millisecond-accurate timer).
 
 #### Radio Configuration
 
-- **Channel**: 76 (2.476 GHz)
+- **Channel**: agile — boot-time RPD noise survey auto-picks the quietest of
+  `RADIO_CHANNEL_CANDIDATES` {76, 82, 78, 74, 49, 24}; manual override via the
+  channel menu (press the control button while in the sport menu: rotary
+  scrolls, click applies — the clock is never reset by a channel change).
+  Receivers re-acquire by scanning the same list within a few seconds
 - **Data Rate**: 250 kbps
 - **Power Level**: 0 dBm
 - **Device Address**: 0xE7E7E7E7E7

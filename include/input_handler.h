@@ -33,7 +33,11 @@ typedef enum {
   // officials' correction, +/-1s per detent (rotation while running still
   // opens the sport menu)
   INPUT_ACTION_TIME_INC = 13,
-  INPUT_ACTION_TIME_DEC = 14
+  INPUT_ACTION_TIME_DEC = 14,
+
+  // Control button pressed inside the sport menu: toggle the radio
+  // channel menu (noise survey + manual channel pick)
+  INPUT_ACTION_CHANNEL_MENU = 15
 } InputAction;
 
 typedef struct {

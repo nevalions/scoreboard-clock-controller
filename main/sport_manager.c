@@ -191,6 +191,12 @@ void sport_manager_enter_variant_menu(SportManager *manager) {
   sync_indices_from_selected(manager);
 }
 
+void sport_manager_enter_channel_menu(SportManager *manager) {
+  if (!manager)
+    return;
+  manager->ui_state = SPORT_UI_STATE_CHANNEL_MENU;
+}
+
 void sport_manager_exit_menu(SportManager *manager) {
   if (!manager)
     return;

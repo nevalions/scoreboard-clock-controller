@@ -47,6 +47,11 @@ void ui_manager_show_variant_menu(UiManager *manager,
                                   const sport_group_t *group,
                                   uint8_t selected_idx);
 
+// Radio channel menu (occupancy bars + '>' selection + '*' active)
+void ui_manager_show_channel_menu(UiManager *manager, const uint8_t *channels,
+                                  const uint16_t *scores, uint8_t count,
+                                  uint8_t selected_idx, uint8_t active_idx);
+
 // Small RUN/PAUSE + TX-brightness + radio-link status row (running screen
 // only); brightness_pct is the profile applied to the transmitted RGB
 void ui_manager_draw_status(UiManager *manager, bool running, bool link_good,

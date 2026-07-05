@@ -93,6 +93,17 @@ InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
   }
 
   // -------------------------------------------------------------------------
+  // INTERNAL BUTTON IN MENUS: toggle the radio channel menu (the RUN-mode
+  // gesture machine below is inactive outside RUNNING, so the edge is free)
+  // -------------------------------------------------------------------------
+  if ((ui == SPORT_UI_STATE_SELECT_SPORT ||
+       ui == SPORT_UI_STATE_CHANNEL_MENU) &&
+      button_get_falling_edge(&h->control_button)) {
+    ESP_LOGI(TAG, "Control button in menu -> channel menu toggle");
+    return INPUT_ACTION_CHANNEL_MENU;
+  }
+
+  // -------------------------------------------------------------------------
   // INTERNAL BUTTON: short press, long press, double-tap
   // (only meaningful in RUN mode, so we keep the guard here)
   // -------------------------------------------------------------------------
@@ -162,7 +173,8 @@ InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
     }
 
     if (ui == SPORT_UI_STATE_SELECT_SPORT ||
-        ui == SPORT_UI_STATE_SELECT_VARIANT) {
+        ui == SPORT_UI_STATE_SELECT_VARIANT ||
+        ui == SPORT_UI_STATE_CHANNEL_MENU) {
       h->last_consumed_position +=
           cw ? ROTARY_COUNTS_PER_DETENT : -ROTARY_COUNTS_PER_DETENT;
       ESP_LOGI(TAG, "Rotary scroll: %s", cw ? "CW" : "CCW");
@@ -182,6 +194,8 @@ InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
     if (ui == SPORT_UI_STATE_SELECT_SPORT)
       return INPUT_ACTION_SPORT_CONFIRM;
     if (ui == SPORT_UI_STATE_SELECT_VARIANT)
+      return INPUT_ACTION_SPORT_CONFIRM;
+    if (ui == SPORT_UI_STATE_CHANNEL_MENU)
       return INPUT_ACTION_SPORT_CONFIRM;
     if (ui == SPORT_UI_STATE_RUNNING)
       return INPUT_ACTION_BRIGHTNESS_CYCLE;

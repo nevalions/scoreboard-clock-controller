@@ -13,7 +13,8 @@
 typedef enum {
   SPORT_UI_STATE_RUNNING = 0,  // Normal mode, big clock
   SPORT_UI_STATE_SELECT_SPORT, // Choosing which sport (basketball/football/...)
-  SPORT_UI_STATE_SELECT_VARIANT // Viewing playclock variants for selected sport
+  SPORT_UI_STATE_SELECT_VARIANT, // Viewing playclock variants for selected sport
+  SPORT_UI_STATE_CHANNEL_MENU // Radio channel selection (noise survey + pick)
 } sport_ui_state_t;
 
 // -----------------------------------------------------------------------------
@@ -79,6 +80,7 @@ sport_manager_get_current_group(const SportManager *manager);
 // -----------------------------------------------------------------------------
 void sport_manager_enter_sport_menu(SportManager *manager);
 void sport_manager_enter_variant_menu(SportManager *manager);
+void sport_manager_enter_channel_menu(SportManager *manager);
 void sport_manager_exit_menu(SportManager *manager); // cancel, back to running
 
 // Move to next sport in list (BASKETBALL -> FOOTBALL -> ...)
