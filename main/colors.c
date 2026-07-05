@@ -1,12 +1,15 @@
 #include "../include/colors.h"
 
+// Seconds remaining below which football switches to the urgent color
+#define URGENT_COUNTDOWN_THRESHOLD_SEC 5
+
 color_t get_sport_color(color_scheme_t scheme, uint8_t seconds) {
     switch (scheme) {
         case COLOR_SCHEME_FOOTBALL:
-            // Football: changes after 5 seconds like current implementation
+            // Football: urgent color inside the final seconds, red at zero
             if (seconds == 0xFF || seconds == 0) {
                 return COLOR_RED;
-            } else if (seconds < 5) {
+            } else if (seconds < URGENT_COUNTDOWN_THRESHOLD_SEC) {
                 return COLOR_DEEP_ORANGE;
             } else {
                 return COLOR_ORANGE;

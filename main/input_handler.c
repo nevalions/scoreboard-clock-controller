@@ -6,11 +6,9 @@
 
 #define DOUBLE_TAP_MS 500
 #define HOLD_RESET_MS 2000
+#define ROTARY_DEBOUNCE_MS 120
 
 static const char *TAG = "INPUT_HANDLER";
-
-// Rotary debounce
-static uint32_t s_last_rotary_action_ms = 0;
 
 // -----------------------------------------------------------------------------
 // INIT
@@ -43,6 +41,7 @@ void input_handler_init(InputHandler *h, gpio_num_t control_pin,
   h->press_start_time = 0;
   h->last_press_time = 0;
   h->press_count = 0;
+  h->last_rotary_action_ms = 0;
   h->last_dir = ROTARY_NONE;
 
   ESP_LOGI(TAG, "InputHandler initialized");
@@ -142,9 +141,9 @@ InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
   RotaryDirection dir = rotary_encoder_get_direction(&h->rotary_encoder);
 
   if (dir != ROTARY_NONE) {
-    if (now - s_last_rotary_action_ms >= 120) {
+    if (now - h->last_rotary_action_ms >= ROTARY_DEBOUNCE_MS) {
 
-      s_last_rotary_action_ms = now;
+      h->last_rotary_action_ms = now;
 
       ESP_LOGI(TAG, "Rotary scroll: %s", dir == ROTARY_CW ? "CW" : "CCW");
 

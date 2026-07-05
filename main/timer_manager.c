@@ -5,7 +5,6 @@
 void timer_manager_init(TimerManager *m, uint16_t initial_seconds) {
   m->current_seconds = initial_seconds;
   m->is_running = false;
-  m->null_sent = false;
   m->timer_last_update = xTaskGetTickCount() * portTICK_PERIOD_MS;
   m->zero_reached_timestamp = 0;
 }
@@ -26,7 +25,6 @@ void timer_manager_start_stop(TimerManager *m) {
 
 void timer_manager_reset(TimerManager *m, uint16_t seconds) {
   m->current_seconds = seconds;
-  m->null_sent = false;
   m->zero_reached_timestamp = 0;
   m->timer_last_update = xTaskGetTickCount() * portTICK_PERIOD_MS;
 }
@@ -45,6 +43,14 @@ void timer_manager_update(TimerManager *m) {
       m->zero_reached_timestamp = now;
     }
   }
+}
+
+bool timer_manager_should_send_null(const TimerManager *m) {
+  if (m->current_seconds != 0 || m->zero_reached_timestamp == 0)
+    return false;
+
+  uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
+  return (now - m->zero_reached_timestamp) >= TIMER_NULL_SIGNAL_DELAY_MS;
 }
 
 uint16_t timer_manager_get_seconds(const TimerManager *m) {

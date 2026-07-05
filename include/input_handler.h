@@ -44,6 +44,9 @@ typedef struct {
   uint32_t last_press_time;
   uint8_t press_count;
 
+  // Rotary debounce
+  uint32_t last_rotary_action_ms;
+
   RotaryDirection last_dir;
 } InputHandler;
 

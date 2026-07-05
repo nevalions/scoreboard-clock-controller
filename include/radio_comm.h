@@ -48,7 +48,6 @@ bool radio_is_transmit_complete(RadioComm *radio);
 void radio_flush_tx(RadioComm *radio);
 void radio_dump_registers(RadioComm *radio);
 void radio_update_link_status(RadioComm *radio);
-bool radio_check_link_quality(RadioComm *radio);
 
 // Helper: check if last TX got a matching ACK sequence
 static inline bool radio_last_ack_ok(const RadioComm *radio,

@@ -2,29 +2,26 @@
 
 ## Overview
 
-Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, display options (1602A I2C LCD or ST7735 TFT), and KY-040 rotary encoder.
+Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, ST7735 TFT display, KY-040 rotary encoder, and dedicated control/preset buttons.
 
-## Display Options
+## Display
 
-### Option 1: 1602A LCD with PCF8574T I2C Adapter (Default)
-
-- **Display**: 16 characters × 2 lines, monochrome
-- **Interface**: I2C
-- **Pins**: SDA=GPIO21, SCL=GPIO22
-
-### Option 2: ST7735 128x160 TFT Color Display
+### ST7735 128x160 TFT Color Display
 
 - **Display**: 128×160 pixels, 65K colors
 - **Interface**: SPI (separate bus from radio)
 - **Pins**: CS=GPIO27, DC=GPIO26, RST=GPIO25, MOSI=GPIO13, SCK=GPIO14
-- **Configuration**: Set `USE_ST7735_DISPLAY = true` in main.c
 
 > **✅ NO PIN CONFLICTS**:
 >
 > - ST7735 TFT uses separate SPI pins from nRF24L01+ radio
 > - ST7735: SCK=GPIO14, MOSI=GPIO13 (separate bus)
 > - Radio: SCK=GPIO18, MOSI=GPIO23 (VSPI bus)
-> - Both displays use the same software interface, just change the constant in main.c.
+
+> **Note**: An earlier revision of this firmware supported a 1602A I2C LCD as an
+> alternative display. That driver (`lcd_i2c`), the I2C scanner, and the
+> `USE_ST7735_DISPLAY` toggle have been removed from the codebase — the ST7735 TFT
+> is now the only supported display.
 
 ## Pin Assignments Summary
 
@@ -38,12 +35,7 @@ Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, disp
 | SCK                              | GPIO18    | SPI Clock                         |
 | MOSI                             | GPIO23    | SPI Master Out                    |
 | MISO                             | GPIO19    | SPI Master In                     |
-| **Display Option 1: I2C LCD**    |           |                                   |
-| VCC                              | 3.3V      | Power                             |
-| GND                              | GND       | Ground                            |
-| SDA                              | GPIO21    | I2C Data                          |
-| SCL                              | GPIO22    | I2C Clock                         |
-| **Display Option 2: ST7735 TFT** |           |                                   |
+| **ST7735 TFT Display**           |           |                                   |
 | Pin 2 (VCC)                      | 3.3V      | Power                             |
 | Pin 1 (GND)                      | GND       | Ground                            |
 | Pin 7 (CS)                       | GPIO27    | SPI Chip Select                   |
@@ -59,9 +51,16 @@ Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, disp
 | DT                               | GPIO16    | Data (B)                          |
 | SW                               | GPIO32    | Switch/Button                     |
 | **Control Button**               |           |                                   |
-| Button                           | GPIO0     | Control Button (Internal Pull-up) |
+| Button                           | GPIO0     | Start/Stop/Reset/Menu (Internal Pull-up) |
+| **Preset / Start / Reset Buttons** |         |                                   |
+| Preset 1                         | GPIO21    | Sport variant preset 1 (Internal Pull-up) |
+| Preset 2                         | GPIO22    | Sport variant preset 2 (Internal Pull-up) |
+| Preset 3                         | GPIO36    | Sport variant preset 3 (⚠️ input-only, needs external pull-up) |
+| Preset 4                         | GPIO34    | Sport variant preset 4 (⚠️ input-only, needs external pull-up) |
+| START                            | GPIO35    | Start/stop toggle (⚠️ input-only, needs external pull-up) |
+| RESET                            | GPIO15    | Reset to sport default (Internal Pull-up) |
 | **Status LED**                   |           |                                   |
-| LED                              | GPIO17    | Link Quality Indicator            |
+| LED                              | GPIO2     | Link Quality Indicator            |
 
 ---
 
@@ -88,65 +87,7 @@ Complete wiring guide for ESP32 scoreboard controller with nRF24L01+ radio, disp
 
 ---
 
-## 1602A LCD with PCF8574T I2C Adapter
-
-### I2C Adapter to ESP32
-
-| I2C Adapter Pin | ESP32 Pin | Description                |
-| --------------- | --------- | -------------------------- |
-| VCC             | 3.3V      | Power (3.3V-5V compatible) |
-| GND             | GND       | Common ground              |
-| SDA             | GPIO21    | I2C Data                   |
-| SCL             | GPIO22    | I2C Clock                  |
-
-### PCF8574T to LCD Connections
-
-| PCF8574T Pin | LCD Pin | Function        | Description             |
-| ------------ | ------- | --------------- | ----------------------- |
-| P0           | RS (4)  | Register Select | 0=Command, 1=Data       |
-| P1           | RW (5)  | Read/Write      | Grounded for write mode |
-| P2           | EN (6)  | Enable          | LCD data latch signal   |
-| P3           | A (15)  | Backlight       | Backlight control       |
-| P4           | D4 (11) | Data Bit 4      | 4-bit data              |
-| P5           | D5 (12) | Data Bit 5      | 4-bit data              |
-| P6           | D6 (13) | Data Bit 6      | 4-bit data              |
-| P7           | D7 (14) | Data Bit 7      | 4-bit data              |
-
-### LCD Power Connections
-
-| LCD Pin | Connection | Description                      |
-| ------- | ---------- | -------------------------------- |
-| VSS (1) | GND        | LCD ground                       |
-| VDD (2) | 3.3V       | LCD power                        |
-| VO (3)  | Contrast   | Contrast control (potentiometer) |
-| K (16)  | GND        | Backlight cathode                |
-
-### I2C Address Configuration
-
-**Your module configured for: 0x27**
-
-| A2  | A1  | A0  | I2C Address | Binary  |
-| --- | --- | --- | ----------- | ------- |
-| 0   | 0   | 0   | 0x20        | 0100000 |
-| 0   | 0   | 1   | 0x21        | 0100001 |
-| 0   | 1   | 0   | 0x22        | 0100010 |
-| 0   | 1   | 1   | 0x23        | 0100111 |
-| 1   | 0   | 0   | 0x24        | 0100100 |
-| 1   | 0   | 1   | 0x25        | 0100101 |
-| 1   | 1   | 0   | 0x26        | 0100110 |
-| 1   | 1   | 1   | **0x27**    | 0100111 |
-
-**Note**: Address pins (A0-A2) are jumpers on PCF8574T module. Code uses 0x27, so all jumpers should be ON.
-
-### Module Variants
-
-- **PCF8574T**: 0x20-0x27 (SO-16 surface mount - your module, configured for 0x27)
-- **PCF8574**: 0x20-0x27 (DIP package)
-- **PCF8574A**: 0x38-0x3F (alternative address range)
-
----
-
-## ST7735 128x160 TFT Display (Option 2)
+## ST7735 128x160 TFT Display
 
 ### Connections
 
@@ -191,14 +132,6 @@ ST7735 (HSPI):          SCK→GPIO14  MOSI→GPIO13  CS→GPIO27
                          ✓SEPARATE!  ✓SEPARATE!  ✓OK
 ```
 
-**Recommendations:**
-
-1. **Use 1602A I2C LCD** - No pin conflicts (recommended)
-2. **Use ST7735 TFT** - No pin conflicts (fully supported)
-3. Both displays use the same software interface
-
-**Both displays work reliably without conflicts.**
-
 **Display Features:**
 
 - **Resolution**: 128×160 pixels
@@ -211,27 +144,6 @@ ST7735 (HSPI):          SCK→GPIO14  MOSI→GPIO13  CS→GPIO27
 - **Voltage**: 3.3V (do NOT use 5V)
 - **Current**: ~20-30mA (backlight dependent)
 - **Decoupling**: Add 10µF capacitor near display
-
-### Software Configuration
-
-To use ST7735 display, modify `main.c`:
-
-```c
-#define USE_ST7735_DISPLAY true   // Use ST7735 TFT
-// #define USE_ST7735_DISPLAY false  // Use I2C LCD
-```
-
-### Display Comparison
-
-| Feature    | 1602A I2C LCD   | ST7735 TFT      |
-| ---------- | --------------- | --------------- |
-| Size       | 16×2 characters | 128×160 pixels  |
-| Colors     | Monochrome      | 65K colors      |
-| Interface  | I2C             | SPI             |
-| Power      | ~20mA           | ~30mA           |
-| Features   | Text only       | Graphics + text |
-| Cost       | Low             | Medium          |
-| Visibility | Good            | Excellent       |
 
 ---
 
@@ -250,15 +162,16 @@ To use ST7735 display, modify `main.c`:
 ### Notes for GPIO33/16
 
 - **Standard GPIO pins**: Full input/output capabilities
-- **Internal pull-ups available**: Can be enabled in software for bare encoders
-- **KY-040 module includes**: 10kΩ pull-up resistors and debouncing
-- **Software pull-ups enabled**: Code enables pull-ups on all 3 pins (GPIO32 gets internal pull-up)
+- **CLK/DT pull-ups**: `rotary_encoder_begin()` explicitly disables internal pull-ups on
+  CLK/DT and relies on the KY-040 module's onboard 10kΩ pull-ups. If wiring a bare
+  encoder without a module, add external 10kΩ pull-ups to CLK and DT.
+- **SW pull-up**: Only the switch pin (GPIO32) gets an internal pull-up enabled in software.
 
 ### Software Configuration
 
-- **Pull-ups**: Enabled on CLK, DT, and SW pins in software
-- **Debounce**: 2ms rotation debounce, 30ms button debounce
-- **Quadrature decoding**: Proper falling-edge detection for 1 step per detent
+- **Pull-ups**: Internal pull-up enabled on SW only; CLK/DT depend on the module's hardware pull-ups
+- **Debounce**: ~2ms rotation debounce (quadrature transition table), direction resets to none after 40ms of no movement
+- **Quadrature decoding**: 2-bit transition table for reliable 1-step-per-detent tracking
 
 ### If Using Bare Encoder (No Module)
 
@@ -291,11 +204,50 @@ ESP32 GPIO0 ---- Button ---- GND
                 (internal pull-up)
 ```
 
-### Button Functions
+### Button Functions (active only while the timer is running)
 
 - **Short Press** (< 2 seconds): Toggle start/stop timer
-- **Long Press** (≥ 2 seconds): Reset timer to sport default
-- **Double Tap**: Enter sport selection menu
+- **Long Press** (≥ 2 seconds): Stop and reset timer to sport default
+- **Double Tap** (< 500ms between presses): Enter sport selection menu
+
+---
+
+## Preset, Start, and Reset Buttons
+
+These four dedicated buttons are wired and debounced the same way as the control
+button (active-low, via `button_driver.c`), but act immediately regardless of timer state.
+
+| Connection | ESP32 Pin | Description                                             | Pull-up                        |
+| ---------- | --------- | -------------------------------------------------------- | ------------------------------- |
+| Preset 1   | GPIO21    | Load preset variant 1 of the current sport group          | Internal (enabled in software) |
+| Preset 2   | GPIO22    | Load preset variant 2 of the current sport group          | Internal (enabled in software) |
+| Preset 3   | GPIO36    | Load preset variant 3 of the current sport group          | Requires external pull-up      |
+| Preset 4   | GPIO34    | Load preset variant 4 of the current sport group          | Requires external pull-up      |
+| START      | GPIO35    | Toggle start/stop (same as control button short press)    | Requires external pull-up      |
+| RESET      | GPIO15    | Stop timer and reset to sport default                      | Internal (enabled in software) |
+
+### Critical: GPIO34/35/36 Have No Internal Pull-Up
+
+GPIO34, GPIO35, and GPIO36 are **input-only** ESP32 pins with no internal pull-up or
+pull-down circuitry available. `button_driver.c` only enables the internal pull-up for
+pins numbered below 34 (`if (pin < 34)`), so preset buttons 3 and 4 (GPIO36/GPIO34) and
+the START button (GPIO35) **require an external pull-up resistor** (e.g. 10kΩ to 3.3V).
+Without it, these inputs float and the button will trigger randomly.
+
+```
+3.3V ---[10kΩ]---+---- ESP32 GPIO34 / GPIO35 / GPIO36
+                 |
+              Button
+                 |
+                GND
+```
+
+### Wiring (Preset 1/2 and RESET — internal pull-up sufficient)
+
+```
+ESP32 GPIO21 / GPIO22 / GPIO15 ---- Button ---- GND
+                                   (internal pull-up)
+```
 
 ---
 
@@ -304,13 +256,16 @@ ESP32 GPIO0 ---- Button ---- GND
 ### Connection
 
 | LED        | ESP32 Pin | Description                  |
-| ---------- | --------- | ---------------------------- |
-| Status LED | GPIO17    | Radio link quality indicator |
+| ---------- | --------- | ----------------------------- |
+| Status LED | GPIO2     | Radio link quality indicator |
 
 ### Operation
 
-- **Solid**: Good radio link
-- **Blinking**: Poor radio link
+Driven by a 50% success-rate threshold (`RADIO_LINK_SUCCESS_RATE_THRESHOLD` in
+`include/radio_comm.h`) over the recent transmission window:
+
+- **Solid**: Good radio link (success rate > 50%, recent activity)
+- **Blinking**: Recent transmission failures / poor link
 - **Off**: No radio link
 
 ---
@@ -319,22 +274,14 @@ ESP32 GPIO0 ---- Button ---- GND
 
 ### Component Power Consumption
 
-| Component       | Voltage | Current                | Notes                |
-| --------------- | ------- | ---------------------- | -------------------- |
-| nRF24L01+       | 3.3V    | 15mA (max TX)          | Add 10µF decoupling  |
-| 1602A LCD + I2C | 3.3V    | 1-2mA + 20mA backlight | Backlight optional   |
-| ST7735 TFT      | 3.3V    | 20-30mA + backlight    | Color graphics       |
-| KY-040          | 3.3V    | <1mA                   | With pull-ups        |
-| ESP32           | 3.3V    | 150-260mA              | Varies with CPU load |
+| Component  | Voltage | Current                | Notes                |
+| ---------- | ------- | ---------------------- | -------------------- |
+| nRF24L01+  | 3.3V    | 15mA (max TX)          | Add 10µF decoupling  |
+| ST7735 TFT | 3.3V    | 20-30mA + backlight    | Color graphics       |
+| KY-040     | 3.3V    | <1mA                   | With pull-ups        |
+| ESP32      | 3.3V    | 150-260mA              | Varies with CPU load |
 
 ### Total Requirements
-
-**With 1602A LCD:**
-
-- **Idle**: ~200mA
-- **Active**: ~300mA (with radio TX + backlight)
-
-**With ST7735 TFT:**
 
 - **Idle**: ~220mA
 - **Active**: ~330mA (with radio TX + backlight)
@@ -346,15 +293,17 @@ ESP32 GPIO0 ---- Button ---- GND
 
 ## Radio Configuration
 
-| Setting   | Value        | Description     |
-| --------- | ------------ | --------------- |
-| Channel   | 76           | 2.476 GHz       |
-| Data Rate | 1 Mbps       | Standard rate   |
-| Power     | 0 dBm        | Maximum power   |
-| CRC       | Enabled      | Error checking  |
-| Auto-ACK  | Enabled      | Reliability     |
-| Payload   | 32 bytes     | Max packet size |
-| Address   | 0xE7E7E7E7E7 | Device address  |
+| Setting          | Value              | Description                                  |
+| ----------------- | ------------------- | ---------------------------------------------- |
+| Channel           | 20                  | 2.420 GHz                                     |
+| Data Rate         | 1 Mbps              | Standard rate                                 |
+| Power              | 0 dBm               | Maximum power                                 |
+| Payload           | 6 bytes (fixed)     | No dynamic payloads                           |
+| CRC               | 1-byte, enabled     | Error checking                                |
+| Auto-ACK          | Enabled on pipe 0   | Reliability                                   |
+| Auto-Retransmit   | SETUP_RETR = 0x4F   | 1250µs delay, up to 15 retries                |
+| Address           | 0xE7E7E7E7E7        | Device address                                |
+| Networking        | None                | Plain point-to-point radio — no mesh, no node IDs, no route discovery |
 
 ---
 
@@ -368,14 +317,6 @@ ESP32 GPIO0 ---- Button ---- GND
 4. **SPI errors**: Check MOSI/MISO not swapped
 
 ### Display Issues
-
-**1602A I2C LCD:**
-
-1. **Blank display**: Check I2C address (use scanner)
-2. **Garbage text**: Wrong I2C address or speed
-3. **No backlight**: Check 3.3V power and jumper settings
-4. **PCF8574T not responding**: Verify address jumpers
-5. **Wrong address**: Your module uses 0x27, not 0x20
 
 **ST7735 TFT Display:**
 
@@ -391,26 +332,25 @@ ESP32 GPIO0 ---- Button ---- GND
 ### Encoder Issues
 
 1. **No response**: Check 3.3V power to KY-040
-2. **Erratic**: CLK/DT swapped or missing pull-ups
+2. **Erratic**: CLK/DT swapped or missing pull-ups (CLK/DT rely on the module's own pull-ups — the ESP32 does not enable internal pull-ups on these two pins)
 3. **Button not working**: Check SW connection to GPIO32
 4. **Wrong direction**: Swap CLK and DT connections
-5. **Multiple steps per detent**: Software debounce should fix this
+5. **Multiple steps per detent**: Quadrature transition-table decoding in `rotary_encoder.c` should prevent this
 6. **Button not detected**: GPIO32 has internal pull-up enabled
+
+### Preset/START/RESET Button Issues
+
+1. **Preset 3/4 or START trigger randomly / register without a press**: Missing external
+   pull-up on GPIO34/35/36 — these input-only pins have no internal pull-up capability
+   and `button_driver.c` does not enable one for pins ≥ 34. Add a 10kΩ pull-up to 3.3V.
+2. **Preset 1/2 or RESET not working**: Verify wiring to GPIO21/22/15; internal pull-up
+   is enabled automatically.
 
 ### General Issues
 
 1. **System unstable**: Insufficient 3.3V power supply
-2. **Status LED not working**: GPIO17 varies by ESP32 board
+2. **Status LED not working**: Verify GPIO2 wiring; some ESP32 boards use GPIO2 for the onboard LED
 3. **Boot issues**: GPIO0 conflicts (avoid during boot)
-
-### I2C Scanner
-
-Use built-in scanner to verify LCD address:
-
-```bash
-idf.py flash monitor
-# Look for: "Found device at address: 0x27"
-```
 
 ---
 
@@ -418,45 +358,39 @@ idf.py flash monitor
 
 1. **Power Connections**: Connect 3.3V and GND to all modules
 2. **Radio Module**: Connect SPI pins (GPIO5,4,18,23,19)
-3. **Display Selection**:
-   - **For 1602A LCD**: Connect I2C pins (GPIO21,22)
-   - **For ST7735 TFT**: Connect SPI pins using your module's pin numbers:
-     - Pin 7 (CS) → GPIO27
-     - Pin 6 (RS/DC) → GPIO26
-     - Pin 5 (RES) → GPIO25
-     - Pin 4 (SDA/MOSI) → GPIO13
-     - Pin 3 (SCK) → GPIO14
-     - Pin 2 (VCC) → 3.3V
-     - Pin 1 (GND) → GND
-     - Pin 8 (LEDA) → 3.3V (backlight)
+3. **Display**: Connect ST7735 SPI pins using your module's pin numbers:
+   - Pin 7 (CS) → GPIO27
+   - Pin 6 (RS/DC) → GPIO26
+   - Pin 5 (RES) → GPIO25
+   - Pin 4 (SDA/MOSI) → GPIO13
+   - Pin 3 (SCK) → GPIO14
+   - Pin 2 (VCC) → 3.3V
+   - Pin 1 (GND) → GND
+   - Pin 8 (LEDA) → 3.3V (backlight)
 4. **Rotary Encoder**: Connect encoder pins (GPIO33,16,32)
 5. **Control Button**: Connect button to GPIO0
-6. **Status LED**: Connect LED to GPIO17
-7. **Software Configuration**: Set `USE_ST7735_DISPLAY` in main.c
+6. **Preset/Start/Reset Buttons**: Connect preset1/2 and RESET to GPIO21/22/15
+   (internal pull-up), then connect preset3, preset4, and START to GPIO36/34/35
+   **with external 10kΩ pull-ups to 3.3V** (mandatory — see Critical Assembly Notes below)
+7. **Status LED**: Connect LED to GPIO2
 8. **Verify**: Double-check all connections before powering on
 
 ### ⚠️ Critical Assembly Notes
 
-**SPI BUS SEPARATION (ST7735 Option):**
+**SPI BUS SEPARATION:**
 
 - **Radio uses**: GPIO18 (SCK), GPIO23 (MOSI), GPIO4 (CSN) ✅
 - **ST7735 uses**: GPIO14 (SCK), GPIO13 (MOSI), GPIO27 (CS) ✅
 - **No pin conflicts**: Separate SPI buses implemented ✅
 - **Result**: Reliable operation for both devices ✅
 
-**Display Selection:**
+**Mandatory External Pull-Ups (GPIO34/35/36):**
 
-- **1602A I2C LCD**: No pin conflicts ✅ (RECOMMENDED)
-- **ST7735 TFT**: No pin conflicts ✅ (FULLY SUPPORTED)
-- Only connect ONE display at a time
-- Configure software with matching `USE_ST7735_DISPLAY` setting
-
-**Display Selection:**
-
-- Only connect ONE display (1602A OR ST7735)
-- Configure software with matching `USE_ST7735_DISPLAY` setting
-- Both displays use same software interface
-- Both options work reliably without pin conflicts
+- GPIO34 (Preset 4), GPIO35 (START), and GPIO36 (Preset 3) are input-only pins with no
+  internal pull-up capability.
+- `button_driver.c` enables the internal pull-up only for pins numbered below 34, so
+  these three buttons **will not work reliably without external 10kΩ pull-up resistors
+  to 3.3V**.
 
 ---
 

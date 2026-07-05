@@ -192,23 +192,3 @@ void radio_update_link_status(RadioComm *radio) {
   }
 }
 
-bool radio_check_link_quality(RadioComm *radio) {
-  if (!radio->base.initialized) {
-    return false;
-  }
-
-  uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
-
-  // Check if we've had any successful transmissions recently
-  if (radio->success_count == 0) {
-    return false;
-  }
-
-  // Check success rate and recent activity
-  uint16_t total_attempts = radio->success_count + radio->failure_count;
-  float success_rate = (float)radio->success_count / total_attempts;
-  bool recent_success =
-      (current_time - radio->last_success_time) < RADIO_LINK_SUCCESS_WINDOW_MS;
-
-  return success_rate > RADIO_LINK_QUALITY_THRESHOLD && recent_success;
-}

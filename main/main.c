@@ -5,7 +5,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "input_handler.h"
-#include "lcd_i2c.h"
 #include "radio_comm.h"
 #include "rotary_encoder.h"
 #include "sport_manager.h"
@@ -21,7 +20,6 @@ static const char *TAG = "CONTROLLER";
 // -----------------------------------------------------------------------------
 // Pin definitions
 // -----------------------------------------------------------------------------
-#define STATUS_LED_PIN GPIO_NUM_17
 #define CONTROL_BUTTON_PIN GPIO_NUM_0
 #define NRF24_CE_PIN GPIO_NUM_5
 #define NRF24_CSN_PIN GPIO_NUM_4
@@ -45,8 +43,6 @@ static const char *TAG = "CONTROLLER";
 #define BTN_START_PIN GPIO_NUM_35
 #define BTN_RESET_PIN GPIO_NUM_15
 
-#define USE_ST7735_DISPLAY true
-
 // Timing
 #define RADIO_TRANSMIT_INTERVAL_MS 250
 #define MAIN_LOOP_DELAY_MS 50
@@ -62,6 +58,19 @@ typedef struct {
 } MainState;
 
 static MainState main_state = {0};
+
+// Common sequence after a sport change or reset request: stop the timer,
+// re-read the active sport, reset the countdown and redraw the display.
+static void apply_current_sport_and_reset(TimerManager *timer_mgr,
+                                          UiManager *ui_mgr,
+                                          SportManager *sport_mgr,
+                                          sport_config_t *current_sport) {
+  timer_manager_stop(timer_mgr);
+  *current_sport = sport_manager_get_current_sport(sport_mgr);
+  timer_manager_reset(timer_mgr, current_sport->play_clock_seconds);
+  ui_manager_update_display(ui_mgr, current_sport,
+                            timer_manager_get_seconds(timer_mgr), sport_mgr);
+}
 
 // -----------------------------------------------------------------------------
 // MAIN APPLICATION
@@ -89,13 +98,8 @@ void app_main(void) {
                      BTN_PRESET2_PIN, BTN_PRESET3_PIN, BTN_PRESET4_PIN,
                      BTN_START_PIN, BTN_RESET_PIN);
 
-#if USE_ST7735_DISPLAY
   ui_manager_init_st7735(&ui_mgr, ST7735_CS_PIN, ST7735_DC_PIN, ST7735_RST_PIN,
                          ST7735_SDA_PIN, ST7735_SCL_PIN);
-#else
-  ui_manager_init_lcd_i2c(&ui_mgr, LCD_I2C_ADDR, LCD_I2C_SDA_PIN,
-                          LCD_I2C_SCL_PIN);
-#endif
 
   if (!ui_mgr.initialized) {
     ESP_LOGE(TAG, "Display init failed!");
@@ -158,13 +162,8 @@ void app_main(void) {
     // *********************************************************************
     case INPUT_ACTION_RESET:
       if (ui_state == SPORT_UI_STATE_RUNNING) {
-
-        timer_manager_stop(&timer_mgr);
-        timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
-
-        ui_manager_update_display(&ui_mgr, &current_sport,
-                                  timer_manager_get_seconds(&timer_mgr),
-                                  &sport_mgr);
+        apply_current_sport_and_reset(&timer_mgr, &ui_mgr, &sport_mgr,
+                                      &current_sport);
       }
       break;
 
@@ -194,19 +193,12 @@ void app_main(void) {
 
       if (group && idx < group->variant_count) {
 
-        timer_manager_stop(&timer_mgr);
-
         sport_type_t t = group->variants[idx];
         sport_manager_set_sport(&sport_mgr, t);
-
         sport_manager_exit_menu(&sport_mgr);
-        current_sport = sport_manager_get_current_sport(&sport_mgr);
 
-        timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
-
-        ui_manager_update_display(&ui_mgr, &current_sport,
-                                  timer_manager_get_seconds(&timer_mgr),
-                                  &sport_mgr);
+        apply_current_sport_and_reset(&timer_mgr, &ui_mgr, &sport_mgr,
+                                      &current_sport);
       }
 
     } break;
@@ -234,14 +226,9 @@ void app_main(void) {
       } else {
 
         sport_manager_exit_menu(&sport_mgr);
-        current_sport = sport_manager_get_current_sport(&sport_mgr);
 
-        timer_manager_stop(&timer_mgr);
-        timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
-
-        ui_manager_update_display(&ui_mgr, &current_sport,
-                                  timer_manager_get_seconds(&timer_mgr),
-                                  &sport_mgr);
+        apply_current_sport_and_reset(&timer_mgr, &ui_mgr, &sport_mgr,
+                                      &current_sport);
       }
       break;
 
@@ -294,16 +281,10 @@ void app_main(void) {
 
       else if (ui_state == SPORT_UI_STATE_SELECT_VARIANT) {
 
-        timer_manager_stop(&timer_mgr);
-
         sport_manager_confirm_selection(&sport_mgr);
-        current_sport = sport_manager_get_current_sport(&sport_mgr);
 
-        timer_manager_reset(&timer_mgr, current_sport.play_clock_seconds);
-
-        ui_manager_update_display(&ui_mgr, &current_sport,
-                                  timer_manager_get_seconds(&timer_mgr),
-                                  &sport_mgr);
+        apply_current_sport_and_reset(&timer_mgr, &ui_mgr, &sport_mgr,
+                                      &current_sport);
       }
       break;
 
@@ -332,8 +313,13 @@ void app_main(void) {
 
     if (t - main_state.radio_last_transmit >= RADIO_TRANSMIT_INTERVAL_MS) {
 
-      uint8_t sec = timer_manager_get_seconds(&timer_mgr);
+      uint16_t sec = timer_manager_get_seconds(&timer_mgr);
       color_t c = get_sport_color(current_sport.color_scheme, sec);
+
+      // 3s after reaching zero, broadcast the null signal so displays clear
+      if (timer_manager_should_send_null(&timer_mgr)) {
+        sec = TIMER_NULL_SIGNAL;
+      }
 
       radio_send_time(&radio, sec, c.r, c.g, c.b, sequence++);
 

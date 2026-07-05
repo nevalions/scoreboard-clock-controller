@@ -2,8 +2,6 @@
 #include "ui_manager.h"
 #include <string.h>
 
-static const char *TAG = "UI_HELPERS";
-
 void ui_format_seconds(char *out, size_t size, uint16_t sec) {
   if (sec < 10)
     snprintf(out, size, "0%d", sec);

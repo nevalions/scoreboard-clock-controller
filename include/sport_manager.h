@@ -87,11 +87,3 @@ void sport_manager_next_sport(SportManager *manager);
 // Confirm currently selected variant (always the *current_variant_idx*)
 // and switch to RUNNING
 void sport_manager_confirm_selection(SportManager *manager);
-
-// -----------------------------------------------------------------------------
-// Legacy helpers (kept for compatibility; still usable if needed)
-// -----------------------------------------------------------------------------
-sport_type_t sport_manager_get_next(sport_type_t current);
-sport_type_t sport_manager_get_prev(sport_type_t current);
-void sport_manager_set_selected_type(SportManager *manager,
-                                     sport_type_t sport_type);
