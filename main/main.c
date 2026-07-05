@@ -156,7 +156,7 @@ void app_main(void) {
   ESP_LOGI(TAG, "Controller initialized");
 
   uint16_t last_time = 65535;
-  uint16_t last_sent_second = 65535;
+  uint16_t last_sent_value = 65535;
   uint16_t consecutive_tx_failures = 0;
   int last_status = -1; // encoded RUN/link glyph state; -1 forces a redraw
 
@@ -374,18 +374,30 @@ void app_main(void) {
     // =====================================================================
     uint32_t t = xTaskGetTickCount() * portTICK_PERIOD_MS;
 
-    // Force an immediate broadcast when the timer second changes so remote
+    // Final 5 seconds while running: switch the carried time to the
+    // deciseconds encoding (256+d) so displays show tenths, FIBA/NBA
+    // shot-clock style
+    uint16_t ds = timer_manager_get_deciseconds(&timer_mgr);
+    bool tenths_mode =
+        timer_manager_is_running(&timer_mgr) && ds > 0 && ds < 50;
+    uint16_t tx_value =
+        tenths_mode ? (uint16_t)(RADIO_TIME_DECISECONDS_BASE + ds) : now;
+
+    // Force an immediate broadcast when the carried value changes so remote
     // displays track the controller within one loop iteration instead of
-    // lagging up to a full 250 ms transmit interval
-    if (now != last_sent_second) {
+    // lagging up to a full 250 ms transmit interval (in tenths mode this
+    // fires every decisecond: ~10 Hz)
+    if (tx_value != last_sent_value) {
       main_state.radio_last_transmit = 0;
     }
 
     if (radio_ok &&
         t - main_state.radio_last_transmit >= RADIO_TRANSMIT_INTERVAL_MS) {
 
-      uint16_t sec = timer_manager_get_seconds(&timer_mgr);
-      color_t c = get_sport_color(current_sport.color_scheme, sec);
+      uint16_t sec = tx_value;
+      // Color follows whole seconds in both modes (4.9s gets the <5s color)
+      color_t c = get_sport_color(current_sport.color_scheme,
+                                  tenths_mode ? ds / 10 : now);
 
       // Apply the TX brightness profile to the carried color
       uint8_t pct = BRIGHTNESS_PCT[main_state.brightness_idx];
@@ -408,7 +420,7 @@ void app_main(void) {
       }
 
       main_state.radio_last_transmit = t;
-      last_sent_second = now;
+      last_sent_value = tx_value;
     }
 
     if (radio_ok) {

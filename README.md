@@ -210,13 +210,18 @@ Use `idf.py menuconfig` to access:
 #### Time + Color Packet Format (6 bytes, fixed payload)
 
 ```
-[0] Time High:   (seconds >> 8) & 0xFF
-[1] Time Low:    seconds & 0xFF
+[0] Time High:   (time_value >> 8) & 0xFF
+[1] Time Low:    time_value & 0xFF
 [2] Red Color:   Sport-specific red value (0-255)
 [3] Green Color: Sport-specific green value (0-255)
 [4] Blue Color:  Sport-specific blue value (0-255)
 [5] Sequence:    0-255 (auto-wrapping counter)
 ```
+
+Time value encoding: 0-99 whole seconds; 255 null/clear; 256+d deciseconds
+(d = 0-49). The final 5 seconds of a running countdown are sent as
+deciseconds so displays show tenths (shot-clock style), with a forced
+transmit on every decisecond change (~10 Hz).
 
 #### Radio Configuration
 
@@ -226,9 +231,9 @@ Use `idf.py menuconfig` to access:
 - **Device Address**: 0xE7E7E7E7E7
 - **Payload**: Fixed 6-byte payload (no dynamic payloads)
 - **CRC**: 1-byte CRC enabled
-- **Auto-ACK**: Enabled on pipe 0 for reliability
-- **Auto-Retransmit**: SETUP_RETR = 0x4F (1250µs delay, up to 15 retries)
-- **Update Rate**: 250ms intervals (4Hz), 3 identical copies per tick (burst redundancy)
+- **Auto-ACK**: Disabled on all pipes (broadcast — ACKs from multiple receivers would collide)
+- **Auto-Retransmit**: Disabled (SETUP_RETR = 0x00, fire-and-forget)
+- **Update Rate**: 250ms intervals (4Hz), 3 identical copies per tick (burst redundancy); ~10 Hz during the final 5 seconds (tenths)
 
 This is plain point-to-point nRF24L01+ communication — there is no mesh networking, node IDs, or route discovery (no RF24Mesh).
 

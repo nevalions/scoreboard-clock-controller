@@ -57,4 +57,18 @@ uint16_t timer_manager_get_seconds(const TimerManager *m) {
   return m->current_seconds;
 }
 
+uint16_t timer_manager_get_deciseconds(const TimerManager *m) {
+  uint16_t ds = m->current_seconds * 10;
+  if (!m->is_running || m->current_seconds == 0)
+    return ds;
+
+  uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
+  uint32_t elapsed = now - m->timer_last_update;
+  if (elapsed > 999)
+    elapsed = 999;
+
+  uint16_t sub = (uint16_t)(elapsed / 100);
+  return (ds > sub) ? (uint16_t)(ds - sub) : 0;
+}
+
 bool timer_manager_is_running(const TimerManager *m) { return m->is_running; }

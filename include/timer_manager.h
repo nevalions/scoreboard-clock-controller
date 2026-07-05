@@ -25,4 +25,10 @@ void timer_manager_start_stop(TimerManager *manager);
 void timer_manager_reset(TimerManager *manager, uint16_t seconds);
 bool timer_manager_should_send_null(const TimerManager *manager);
 uint16_t timer_manager_get_seconds(const TimerManager *manager);
+
+// Remaining time in deciseconds, derived from the tick timestamp while
+// running (paused: whole seconds x10 - the partial second restarts on
+// resume, matching the whole-second pause behavior)
+uint16_t timer_manager_get_deciseconds(const TimerManager *manager);
+
 bool timer_manager_is_running(const TimerManager *manager);
