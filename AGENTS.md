@@ -166,7 +166,8 @@ idf.py flash monitor
 10. Serial logs provide debugging and status information
 
 ### Sport Management
-- **Sport Selection**: Rotary encoder browses sport groups; confirming a group always previews its default (first) variant
+- **Sport Selection**: Rotary encoder browses sport groups; confirming a group enters the
+  variant menu, where rotation cycles variants (`>` highlight) and click applies the selection
 - **Sport Confirmation**: Selecting a preset/sport/variant always calls `apply_current_sport_and_reset()` — stops the timer, applies the sport, resets the countdown, and redraws. There is no "same sport = quick reset" special case.
 - **Default Times**: Each sport has configurable play clock durations
 - **Color Schemes** (`colors.c`): Football uses orange `{255,90,0}` normally, deep-orange `{255,40,0}` under `URGENT_COUNTDOWN_THRESHOLD_SEC` (5s), and red `{255,0,0}` at 0 or on the 0xFF null signal. Basketball is always red. Baseball, Volleyball, and Lacrosse are always orange.
@@ -305,24 +306,25 @@ code path has been removed; `ui_manager_init_st7735()` is the only display init 
 [5] Sequence:    0-255 (auto-wrapping counter)
 ```
 
-### Special Values
-- **0xFF** (seconds field): Null indicator to clear the display, broadcast
+### Special Values (canonical: radio-common README / radio_config.h)
+- **0-99**: whole seconds; **255**: null/clear, broadcast
   `TIMER_NULL_SIGNAL_DELAY_MS` (3000ms) after the timer reaches zero
-- **0-999**: Valid time values in seconds
-- **Sequence**: Auto-wrapping counter for packet tracking
+- **256+d** (d = 0-49): final-countdown deciseconds (tenths, ~10 Hz)
+- **Bit 15**: WARN10 flag — 10s buzzer for football (set from `sport_config_t.warn_at_10`)
+- **Sequence**: auto-wrapping counter, shared across the 3 burst copies of a tick
 
 ### Radio Configuration
-- **Channel**: 76 (2.476 GHz)
-- **Data Rate**: 250 kbps
-- **Power Level**: 0 dBm
-- **Device Address**: 0xE7E7E7E7E7
-- **Payload**: Fixed 6-byte payload (no dynamic payloads)
-- **CRC**: 1-byte CRC enabled
-- **Auto-ACK**: Enabled on pipe 0 for reliability
-- **Auto-Retransmit**: `SETUP_RETR` = 0x4F (1250µs delay, up to 15 retries)
-- **Update Rate**: 250ms intervals (4Hz), 3 identical copies per tick (burst redundancy)
-- **Link Quality**: Monitored via success/failure ratio (`RADIO_LINK_SUCCESS_RATE_THRESHOLD` = 0.5f)
-- **Networking**: Plain point-to-point radio — no mesh (no RF24Mesh), node IDs, or route discovery
+
+> Canonical protocol values live in `radio-common/README.md` +
+> `radio-common/include/radio_config.h` — do not restate them here.
+
+- Channel-agile broadcast (boot RPD survey auto-pick + channel menu override),
+  250 kbps, fire-and-forget (auto-ACK/auto-retransmit disabled), 3-copy TX burst per tick
+- **Link Quality**: success/failure ratio (`RADIO_LINK_SUCCESS_RATE_THRESHOLD` = 0.5f) —
+  with no ACKs, "success" means "frame aired", not "receiver heard"
+- **Networking**: Plain broadcast — no mesh (no RF24Mesh), node IDs, or route discovery
+- **Referee watch uplink**: encrypted ESP-NOW on the WiFi radio (`espnow_watch_rx.c`,
+  allowlist in `include/espnow_watches.h`, contract in `radio-common/include/espnow_link.h`)
 
 ## Development Workflow
 

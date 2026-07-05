@@ -295,7 +295,7 @@ Driven by a 50% success-rate threshold (`RADIO_LINK_SUCCESS_RATE_THRESHOLD` in
 
 | Setting          | Value              | Description                                  |
 | ----------------- | ------------------- | ---------------------------------------------- |
-| Channel           | 76                  | 2.476 GHz                                     |
+| Channel           | agile               | candidates in radio-common radio_config.h    |
 | Data Rate         | 250 kbps            | Best sensitivity/range                        |
 | Power              | 0 dBm               | Maximum power                                 |
 | Payload           | 6 bytes (fixed)     | No dynamic payloads                           |
