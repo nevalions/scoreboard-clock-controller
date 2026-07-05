@@ -60,8 +60,15 @@ static const char *TAG = "CONTROLLER";
 static RadioComm radio;
 static uint8_t sequence = 0;
 
+// TX brightness profiles, cycled by rotary click on the running screen.
+// Applied to the RGB carried in the frame - receivers just render what
+// they get, so no protocol or receiver change is involved
+static const uint8_t BRIGHTNESS_PCT[] = {100, 50, 25};
+#define BRIGHTNESS_LEVELS (sizeof(BRIGHTNESS_PCT) / sizeof(BRIGHTNESS_PCT[0]))
+
 typedef struct {
   uint32_t radio_last_transmit;
+  uint8_t brightness_idx;
 } MainState;
 
 static MainState main_state = {0};
@@ -179,6 +186,18 @@ void app_main(void) {
     case INPUT_ACTION_START_STOP:
       if (ui_state == SPORT_UI_STATE_RUNNING)
         timer_manager_start_stop(&timer_mgr);
+      break;
+
+    // *********************************************************************
+    // BRIGHTNESS CYCLE (rotary click on running screen)
+    // *********************************************************************
+    case INPUT_ACTION_BRIGHTNESS_CYCLE:
+      main_state.brightness_idx =
+          (main_state.brightness_idx + 1) % BRIGHTNESS_LEVELS;
+      ESP_LOGI(TAG, "TX brightness: %u%%",
+               BRIGHTNESS_PCT[main_state.brightness_idx]);
+      // Status row redraws below (action != NONE); next 250ms tick
+      // carries the rescaled color
       break;
 
     // *********************************************************************
@@ -335,13 +354,15 @@ void app_main(void) {
     // STATUS GLYPHS (RUN/PAUSE + radio link) — running screen only
     // =====================================================================
     if (sport_manager_get_ui_state(&sport_mgr) == SPORT_UI_STATE_RUNNING) {
-      int status_now = (timer_manager_is_running(&timer_mgr) ? 2 : 0) |
+      int status_now = (main_state.brightness_idx << 2) |
+                       (timer_manager_is_running(&timer_mgr) ? 2 : 0) |
                        ((radio_ok && radio.link_good) ? 1 : 0);
       // Redraw when state changes, or after any action (full redraws from
       // reset/preset/confirm wipe the glyph area)
       if (status_now != last_status || action != INPUT_ACTION_NONE) {
         ui_manager_draw_status(&ui_mgr, timer_manager_is_running(&timer_mgr),
-                               radio_ok && radio.link_good);
+                               radio_ok && radio.link_good,
+                               BRIGHTNESS_PCT[main_state.brightness_idx]);
         last_status = status_now;
       }
     } else {
@@ -365,6 +386,12 @@ void app_main(void) {
 
       uint16_t sec = timer_manager_get_seconds(&timer_mgr);
       color_t c = get_sport_color(current_sport.color_scheme, sec);
+
+      // Apply the TX brightness profile to the carried color
+      uint8_t pct = BRIGHTNESS_PCT[main_state.brightness_idx];
+      c.r = (uint8_t)((c.r * pct) / 100);
+      c.g = (uint8_t)((c.g * pct) / 100);
+      c.b = (uint8_t)((c.b * pct) / 100);
 
       // 3s after reaching zero, broadcast the null signal so displays clear
       if (timer_manager_should_send_null(&timer_mgr)) {

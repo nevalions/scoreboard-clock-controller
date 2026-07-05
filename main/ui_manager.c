@@ -69,11 +69,12 @@ void ui_manager_show_variant_menu(UiManager *m, const sport_group_t *group,
   ui_draw_st7735_variant_menu(m, group, selected_idx);
 }
 
-void ui_manager_draw_status(UiManager *m, bool running, bool link_good) {
+void ui_manager_draw_status(UiManager *m, bool running, bool link_good,
+                            uint8_t brightness_pct) {
   if (!m || !m->initialized)
     return;
 
-  ui_st7735_draw_status(m, running, link_good);
+  ui_st7735_draw_status(m, running, link_good, brightness_pct);
 }
 
 void ui_manager_clear(UiManager *m) {

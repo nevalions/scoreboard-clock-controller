@@ -41,8 +41,10 @@ void ui_manager_show_variant_menu(UiManager *manager,
                                   const sport_group_t *group,
                                   uint8_t selected_idx);
 
-// Small RUN/PAUSE + radio-link status glyphs (running screen only)
-void ui_manager_draw_status(UiManager *manager, bool running, bool link_good);
+// Small RUN/PAUSE + TX-brightness + radio-link status row (running screen
+// only); brightness_pct is the profile applied to the transmitted RGB
+void ui_manager_draw_status(UiManager *manager, bool running, bool link_good,
+                            uint8_t brightness_pct);
 
 void ui_manager_clear(UiManager *manager);
 void ui_manager_run_display_tests(UiManager *manager);

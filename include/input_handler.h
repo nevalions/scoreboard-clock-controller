@@ -24,7 +24,10 @@ typedef enum {
   INPUT_ACTION_PRESET_1 = 8,
   INPUT_ACTION_PRESET_2 = 9,
   INPUT_ACTION_PRESET_3 = 10,
-  INPUT_ACTION_PRESET_4 = 11
+  INPUT_ACTION_PRESET_4 = 11,
+
+  // Rotary click on the running screen: cycle TX brightness day/dusk/night
+  INPUT_ACTION_BRIGHTNESS_CYCLE = 12
 } InputAction;
 
 typedef struct {

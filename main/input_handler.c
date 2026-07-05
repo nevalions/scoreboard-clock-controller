@@ -176,6 +176,8 @@ InputAction input_handler_update(InputHandler *h, SportManager *sport_mgr,
       return INPUT_ACTION_SPORT_CONFIRM;
     if (ui == SPORT_UI_STATE_SELECT_VARIANT)
       return INPUT_ACTION_SPORT_CONFIRM;
+    if (ui == SPORT_UI_STATE_RUNNING)
+      return INPUT_ACTION_BRIGHTNESS_CYCLE;
   }
 
   return action;

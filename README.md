@@ -115,10 +115,11 @@ This controller manages timing and sport selection for a wireless scoreboard sys
     - **Clockwise**: Next sport group
     - **Counter-clockwise**: Previous sport group
   - **While timer is running**: Any rotation opens the sport selection menu (equivalent to double-tapping the control button)
-  - **In variant selection menu**: Rotation has no effect — selecting a group always previews its default (first) variant. Use the preset buttons to pick a non-default variant.
+  - **In variant selection menu**: Cycles the variants of the selected group; the `>` marker highlights the current choice
 - **Button Press (SW)**:
-  - **In sport selection menu**: Confirms the highlighted sport group and enters its variant preview
-  - **In variant selection menu**: Confirms the default variant, which stops the timer, resets the countdown, and returns to the running display
+  - **In sport selection menu**: Confirms the highlighted sport group and enters its variant menu
+  - **In variant selection menu**: Confirms the highlighted variant, which stops the timer, resets the countdown, and returns to the running display
+  - **While timer is running**: Cycles the TX brightness profile — 100% (day) → 50% (dusk) → 25% (night). The active percentage shows in the TFT status row; the scaled RGB is carried in the radio frame, so remote displays dim without any receiver change
 
 There is no "same sport = quick reset" special case — selecting a sport/variant/preset always stops the timer, applies the sport, resets the countdown, and redraws the display.
 

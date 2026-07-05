@@ -28,7 +28,8 @@ void ui_draw_st7735_main(UiManager *m, const sport_config_t *sport,
   ui_st7735_print_center(lcd, 85, ST7735_WHITE, ST7735_BLACK, 4, timebuf);
 }
 
-void ui_st7735_draw_status(UiManager *m, bool running, bool link_good) {
+void ui_st7735_draw_status(UiManager *m, bool running, bool link_good,
+                           uint8_t brightness_pct) {
   St7735Lcd *lcd = &m->st7735;
 
   // RUN/PAUSE glyph, top-left corner (sport name is centered, so the
@@ -41,6 +42,14 @@ void ui_st7735_draw_status(UiManager *m, bool running, bool link_good) {
     st7735_print(lcd, UI_ST7735_MARGIN + 2, 2, ST7735_YELLOW, ST7735_BLACK, 1,
                  "PAUSE");
   }
+
+  // TX brightness percentage, left of the link dot (rotary click cycles it)
+  char pctbuf[6];
+  snprintf(pctbuf, sizeof(pctbuf), "%3u%%", brightness_pct);
+  st7735_draw_rect(lcd, ST7735_WIDTH - UI_ST7735_MARGIN - 40, 2, 26, 8,
+                   ST7735_BLACK);
+  st7735_print(lcd, ST7735_WIDTH - UI_ST7735_MARGIN - 40, 2, ST7735_WHITE,
+               ST7735_BLACK, 1, pctbuf);
 
   // Radio link dot, top-right corner: green = frames airing, red = not
   uint16_t link_color = link_good ? ST7735_GREEN : ST7735_RED;
