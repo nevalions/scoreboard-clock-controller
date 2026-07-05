@@ -83,43 +83,56 @@ bool radio_send_time(RadioComm *radio, uint16_t seconds, uint8_t r, uint8_t g,
   nrf24_write_register(&radio->base, NRF24_REG_CONFIG, config);
   vTaskDelay(pdMS_TO_TICKS(1));
 
-  // Pulse CE to start transmission
-  gpio_set_level(radio->base.ce_pin, 0);
-  nrf24_write_payload(&radio->base, payload, RADIO_PAYLOAD_SIZE);
-  gpio_set_level(radio->base.ce_pin, 1);
+  // Burst: send RADIO_TX_BURST_COUNT identical copies (same sequence) so at
+  // least one lands in a gap between WiFi bursts. Counters tick once per
+  // call, not per copy, so link stats keep measuring ticks
+  uint8_t copies_aired = 0;
+  for (uint8_t copy = 0; copy < RADIO_TX_BURST_COUNT; copy++) {
+    gpio_set_level(radio->base.ce_pin, 0);
+    nrf24_write_payload(&radio->base, payload, RADIO_PAYLOAD_SIZE);
+    gpio_set_level(radio->base.ce_pin, 1);
 
-  // Wait for TX_DS (broadcast, no auto-ACK/retries: completes in ~1ms;
-  // the timeout is a safety bound for a wedged chip)
-  uint32_t start_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
-  while ((xTaskGetTickCount() * portTICK_PERIOD_MS) - start_time <
-         RADIO_TRANSMIT_TIMEOUT_MS) {
-    uint8_t status = nrf24_get_status(&radio->base);
-    if (status & NRF24_STATUS_TX_DS) {
-      // Transmission successful
-      nrf24_write_register(&radio->base, NRF24_REG_STATUS, NRF24_STATUS_TX_DS);
-      gpio_set_level(radio->base.ce_pin, 0);
-      radio->success_count++;
-      radio->last_success_time = current_time;
-      ESP_LOGI(TAG,
-               "Time sent: %d seconds, RGB(%d,%d,%d), seq: %d (success #%d)",
-               seconds, r, g, b, sequence, radio->success_count);
-      return true;
+    // Wait for TX_DS (broadcast, no auto-ACK/retries: completes in ~1ms;
+    // the timeout is a safety bound for a wedged chip)
+    bool copy_done = false;
+    uint32_t start_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    while ((xTaskGetTickCount() * portTICK_PERIOD_MS) - start_time <
+           RADIO_TRANSMIT_TIMEOUT_MS) {
+      uint8_t status = nrf24_get_status(&radio->base);
+      if (status & NRF24_STATUS_TX_DS) {
+        nrf24_write_register(&radio->base, NRF24_REG_STATUS,
+                             NRF24_STATUS_TX_DS);
+        copy_done = true;
+        break;
+      }
+      if (status & NRF24_STATUS_MAX_RT) {
+        // Defensive: cannot fire with SETUP_RETR=0 (no auto-ACK broadcast)
+        nrf24_write_register(&radio->base, NRF24_REG_STATUS,
+                             NRF24_STATUS_MAX_RT);
+        break;
+      }
+      vTaskDelay(pdMS_TO_TICKS(1));
     }
-    if (status & NRF24_STATUS_MAX_RT) {
-      // Defensive: cannot fire with SETUP_RETR=0 (no auto-ACK broadcast)
-      nrf24_write_register(&radio->base, NRF24_REG_STATUS, NRF24_STATUS_MAX_RT);
-      gpio_set_level(radio->base.ce_pin, 0);
-      radio->failure_count++;
-      radio->last_failure_time = current_time;
-      ESP_LOGW(TAG, "Transmission failed - max retries (failure #%d)",
-               radio->failure_count);
-      return false;
+
+    gpio_set_level(radio->base.ce_pin, 0);
+    if (!copy_done) {
+      // Timeout means a wedged chip - further copies are pointless
+      break;
     }
-    vTaskDelay(pdMS_TO_TICKS(1));
+    copies_aired++;
   }
 
-  // Timeout
-  gpio_set_level(radio->base.ce_pin, 0);
+  if (copies_aired > 0) {
+    radio->success_count++;
+    radio->last_success_time = current_time;
+    ESP_LOGI(TAG,
+             "Time sent: %d seconds, RGB(%d,%d,%d), seq: %d, copies: %u/%u "
+             "(success #%d)",
+             seconds, r, g, b, sequence, copies_aired, RADIO_TX_BURST_COUNT,
+             radio->success_count);
+    return true;
+  }
+
   radio->failure_count++;
   radio->last_failure_time = current_time;
   ESP_LOGW(TAG, "Transmission timeout (failure #%d)", radio->failure_count);

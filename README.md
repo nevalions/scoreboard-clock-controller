@@ -219,15 +219,15 @@ Use `idf.py menuconfig` to access:
 
 #### Radio Configuration
 
-- **Channel**: 20 (2.420 GHz)
-- **Data Rate**: 1 Mbps
+- **Channel**: 76 (2.476 GHz)
+- **Data Rate**: 250 kbps
 - **Power Level**: 0 dBm
 - **Device Address**: 0xE7E7E7E7E7
 - **Payload**: Fixed 6-byte payload (no dynamic payloads)
 - **CRC**: 1-byte CRC enabled
 - **Auto-ACK**: Enabled on pipe 0 for reliability
 - **Auto-Retransmit**: SETUP_RETR = 0x4F (1250µs delay, up to 15 retries)
-- **Update Rate**: 250ms intervals (4Hz)
+- **Update Rate**: 250ms intervals (4Hz), 3 identical copies per tick (burst redundancy)
 
 This is plain point-to-point nRF24L01+ communication — there is no mesh networking, node IDs, or route discovery (no RF24Mesh).
 

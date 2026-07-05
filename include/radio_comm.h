@@ -9,6 +9,10 @@
 
 // Radio timing constants
 #define RADIO_TRANSMIT_TIMEOUT_MS 30
+// Copies of the same frame sent back-to-back per tick: WiFi interference is
+// bursty, so closely spaced duplicates give one copy a good chance of landing
+// in a clean gap. Receivers are stateless and treat duplicates as no-ops.
+#define RADIO_TX_BURST_COUNT 3
 #define RADIO_LINK_SUCCESS_WINDOW_MS 5000
 #define RADIO_LINK_FAILURE_WINDOW_MS 2000
 #define RADIO_LINK_LOG_INTERVAL_MS 10000

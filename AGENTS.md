@@ -161,7 +161,7 @@ idf.py flash monitor
 5. Timer manager handles countdown logic, state management, and null-signal timing
 6. UI manager updates the ST7735 display with current status
 7. Main loop coordinates all components and updates time counter when running
-8. Radio comm broadcasts 6-byte time+color packets (4Hz) with sequence numbers
+8. Radio comm broadcasts 6-byte time+color packets (4Hz, 3 identical copies per tick) with sequence numbers
 9. Status LED (GPIO2) reflects radio link quality in real-time
 10. Serial logs provide debugging and status information
 
@@ -312,15 +312,15 @@ code path has been removed; `ui_manager_init_st7735()` is the only display init 
 - **Sequence**: Auto-wrapping counter for packet tracking
 
 ### Radio Configuration
-- **Channel**: 20 (2.420 GHz)
-- **Data Rate**: 1 Mbps
+- **Channel**: 76 (2.476 GHz)
+- **Data Rate**: 250 kbps
 - **Power Level**: 0 dBm
 - **Device Address**: 0xE7E7E7E7E7
 - **Payload**: Fixed 6-byte payload (no dynamic payloads)
 - **CRC**: 1-byte CRC enabled
 - **Auto-ACK**: Enabled on pipe 0 for reliability
 - **Auto-Retransmit**: `SETUP_RETR` = 0x4F (1250µs delay, up to 15 retries)
-- **Update Rate**: 250ms intervals (4Hz)
+- **Update Rate**: 250ms intervals (4Hz), 3 identical copies per tick (burst redundancy)
 - **Link Quality**: Monitored via success/failure ratio (`RADIO_LINK_SUCCESS_RATE_THRESHOLD` = 0.5f)
 - **Networking**: Plain point-to-point radio — no mesh (no RF24Mesh), node IDs, or route discovery
 
@@ -348,7 +348,7 @@ code path has been removed; `ui_manager_init_st7735()` is the only display init 
 
 ### Performance Considerations
 - Main loop runs at 20Hz (50ms delay)
-- Radio updates at 4Hz (250ms intervals)
+- Radio updates at 4Hz (250ms intervals), each tick sent as a 3-copy burst
 - Timer updates at 1Hz (1000ms intervals)
 - Link quality monitoring at 0.1Hz (10-second intervals)
 - Memory usage should remain stable without leaks

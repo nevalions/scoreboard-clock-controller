@@ -295,8 +295,8 @@ Driven by a 50% success-rate threshold (`RADIO_LINK_SUCCESS_RATE_THRESHOLD` in
 
 | Setting          | Value              | Description                                  |
 | ----------------- | ------------------- | ---------------------------------------------- |
-| Channel           | 20                  | 2.420 GHz                                     |
-| Data Rate         | 1 Mbps              | Standard rate                                 |
+| Channel           | 76                  | 2.476 GHz                                     |
+| Data Rate         | 250 kbps            | Best sensitivity/range                        |
 | Power              | 0 dBm               | Maximum power                                 |
 | Payload           | 6 bytes (fixed)     | No dynamic payloads                           |
 | CRC               | 1-byte, enabled     | Error checking                                |
