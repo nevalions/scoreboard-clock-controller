@@ -244,6 +244,21 @@ Pause preserves the exact remaining time (millisecond-accurate timer).
 
 This is plain point-to-point nRF24L01+ communication — there is no mesh networking, node IDs, or route discovery (no RF24Mesh).
 
+### Referee watch uplink (ESP-NOW)
+
+The controller's otherwise idle WiFi radio receives START/STOP and RESET
+commands from wrist-worn referee watches (see the `referee_watch` module)
+via encrypted ESP-NOW on WiFi channel 6 — chosen to sit between the nRF24
+candidate channels 24 and 49 so the uplink never overlaps the display
+broadcast. Watches are paired at build time: their MACs go in
+`include/espnow_watches.h` (all-zero rows are ignored, so the firmware runs
+unpaired), the controller's MAC (logged at boot) goes in each watch's
+config, and the PMK/LMK keys in `radio-common/include/espnow_link.h` must be
+changed per deployment. Per-watch sequence dedupe means a watch's retry
+burst can never double-toggle the clock; commands enter the same action path
+as the physical buttons, and local inputs win ties. WiFi init failure is
+non-fatal — the controller runs without watches.
+
 ## Troubleshooting
 
 ### Common Issues

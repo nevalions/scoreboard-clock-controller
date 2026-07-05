@@ -1,6 +1,7 @@
 #include "../../radio-common/include/radio_config.h"
 #include "colors.h"
 #include "driver/gpio.h"
+#include "espnow_watch_rx.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -192,6 +193,13 @@ void app_main(void) {
                  ST7735_BLACK, 1, "RADIO FAILED");
   }
 
+  // Referee watch uplink (ESP-NOW on the otherwise idle WiFi radio).
+  // Failure is non-fatal: physical buttons and rotary are unaffected
+  bool watches_ok = espnow_watch_rx_init();
+  if (!watches_ok) {
+    ESP_LOGW(TAG, "Watch uplink unavailable - continuing without it");
+  }
+
   ESP_LOGI(TAG, "Controller initialized");
 
   uint16_t last_time = 65535;
@@ -206,6 +214,17 @@ void app_main(void) {
 
     InputAction action =
         input_handler_update(&input_handler, &sport_mgr, &timer_mgr);
+
+    // Referee watch commands take the same action path as physical inputs;
+    // local inputs win when both arrive in one poll
+    if (action == INPUT_ACTION_NONE && watches_ok) {
+      espnow_cmd_t watch_cmd;
+      if (espnow_watch_rx_poll(&watch_cmd)) {
+        action = (watch_cmd == ESPNOW_CMD_RESET) ? INPUT_ACTION_RESET
+                                                 : INPUT_ACTION_START_STOP;
+        ESP_LOGI(TAG, "Watch command -> action %d", action);
+      }
+    }
 
     sport_ui_state_t ui_state = sport_manager_get_ui_state(&sport_mgr);
     sport_config_t current_sport = sport_manager_get_current_sport(&sport_mgr);
